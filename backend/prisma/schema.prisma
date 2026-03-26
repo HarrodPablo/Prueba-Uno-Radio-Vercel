@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  dni       String   @unique
+  name      String
+  phone     String
+  email     String?  @unique
+  role      UserRole @default(PATIENT)
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  studiesAsPatient Study[]  @relation("PatientStudies")
+  studiesAsDoctor  Study[]  @relation("DoctorStudies")
+  reports          Report[]
+  @@map("users")
+}
+
+model Study {
+  id        String   @id @default(cuid())
+  patientId String
+  doctorId  String
+  type      String
+  imageUrl  String?
+  notes     String?  // Mantenemos notes de la primera versión
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  patient User     @relation("PatientStudies", fields: [patientId], references: [id], onDelete: Cascade)
+  doctor  User     @relation("DoctorStudies", fields: [doctorId], references: [id])
+  reports Report[]
+  @@map("studies")
+}
+
+model Report {
+  id        String   @id @default(cuid())
+  studyId   String   @unique
+  doctorId  String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  study  Study @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  doctor User  @relation(fields: [doctorId], references: [id])
+  @@map("reports")
+}
+
+enum UserRole {
+  ADMIN
+  DOCTOR
+  PATIENT
+}

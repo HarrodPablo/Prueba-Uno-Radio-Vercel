@@ -1,0 +1,88 @@
+// Función para generar PDF de informes médicos
+export const generatePDF = (report, study) => {
+  const content = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          margin: 20px;
+          line-height: 1.6;
+        }
+        .header {
+          text-align: center;
+          border-bottom: 2px solid #333;
+          padding-bottom: 20px;
+          margin-bottom: 30px;
+        }
+        .patient-info {
+          background: #f5f5f5;
+          padding: 15px;
+          border-radius: 5px;
+          margin-bottom: 20px;
+        }
+        .study-info {
+          margin-bottom: 20px;
+        }
+        .report-content {
+          margin: 20px 0;
+          text-align: justify;
+        }
+        .footer {
+          margin-top: 50px;
+          text-align: center;
+          font-size: 12px;
+          color: #666;
+        }
+        .signature {
+          margin-top: 50px;
+          text-align: right;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1 class="text-center">INFORME MÉDICO</h1>
+        <h2>${study.type}</h2>
+      </div>
+      
+      <div class="patient-info">
+        <h3>Datos del Paciente</h3>
+        <p><strong>Nombre:</strong> ${study.patient.name}</p>
+        <p><strong>DNI:</strong> ${study.patient.dni}</p>
+        <p><strong>Teléfono:</strong> ${study.patient.phone}</p>
+      </div>
+      
+      <div class="study-info">
+        <h3>Datos del Estudio</h3>
+        <p><strong>Fecha:</strong> ${new Date(study.date).toLocaleDateString("es-ES")}</p>
+        <p><strong>Tipo de Estudio:</strong> ${study.type}</p>
+        <p><strong>Médico:</strong> ${study.doctor.name}</p>
+      </div>
+      
+      <div class="report-content">
+        <h3>Informe Radiológico</h3>
+        <p>${report.content}</p>
+      </div>
+      
+ 
+      <div class="footer">
+        <p>Portal Médico - Sistema de Gestión de Estudios Radiológicos</p>
+        <p>Generado el ${new Date().toLocaleDateString("es-ES")} a las ${new Date().toLocaleTimeString("es-ES")}</p>
+      </div>
+    </body>
+    </html>
+  `;
+
+  // Crear una nueva ventana para imprimir
+  const printWindow = window.open('', '_blank');
+  printWindow.document.write(content);
+  printWindow.document.close();
+  
+  // Esperar a que cargue y luego imprimir
+  printWindow.onload = function() {
+    printWindow.print();
+  };
+};
