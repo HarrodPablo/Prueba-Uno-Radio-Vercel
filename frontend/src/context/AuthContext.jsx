@@ -1,46 +1,49 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import axios from 'axios';
+import axios from "axios";
+import { createContext, useContext, useEffect, useReducer } from "react";
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+axios.defaults.baseURL = API_URL;
 
 const AuthContext = createContext();
 
 const authReducer = (state, action) => {
   switch (action.type) {
-    case 'LOGIN_SUCCESS':
+    case "LOGIN_SUCCESS":
       return {
         ...state,
         isAuthenticated: true,
         user: action.payload.user,
         token: action.payload.token,
         loading: false,
-        error: null
+        error: null,
       };
-    case 'LOGIN_FAILURE':
+    case "LOGIN_FAILURE":
       return {
         ...state,
         isAuthenticated: false,
         user: null,
         token: null,
         loading: false,
-        error: action.payload
+        error: action.payload,
       };
-    case 'LOGOUT':
+    case "LOGOUT":
       return {
         ...state,
         isAuthenticated: false,
         user: null,
         token: null,
         loading: false,
-        error: null
+        error: null,
       };
-    case 'SET_LOADING':
+    case "SET_LOADING":
       return {
         ...state,
-        loading: action.payload
+        loading: action.payload,
       };
-    case 'CLEAR_ERROR':
+    case "CLEAR_ERROR":
       return {
         ...state,
-        error: null
+        error: null,
       };
     default:
       return state;
@@ -50,9 +53,9 @@ const authReducer = (state, action) => {
 const initialState = {
   isAuthenticated: false,
   user: null,
-  token: localStorage.getItem('token'),
+  token: localStorage.getItem("token"),
   loading: false,
-  error: null
+  error: null,
 };
 
 export const AuthProvider = ({ children }) => {
@@ -61,29 +64,29 @@ export const AuthProvider = ({ children }) => {
   // Set up axios defaults
   useEffect(() => {
     if (state.token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${state.token}`;
+      axios.defaults.headers.common["Authorization"] = `Bearer ${state.token}`;
     } else {
-      delete axios.defaults.headers.common['Authorization'];
+      delete axios.defaults.headers.common["Authorization"];
     }
   }, [state.token]);
 
   // Check if user is authenticated on app start
   useEffect(() => {
     const checkAuth = async () => {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       if (token) {
         try {
-          const response = await axios.get('/api/auth/me');
+          const response = await axios.get("/api/auth/me");
           dispatch({
-            type: 'LOGIN_SUCCESS',
+            type: "LOGIN_SUCCESS",
             payload: {
               user: response.data,
-              token
-            }
+              token,
+            },
           });
         } catch (error) {
-          localStorage.removeItem('token');
-          dispatch({ type: 'LOGOUT' });
+          localStorage.removeItem("token");
+          dispatch({ type: "LOGOUT" });
         }
       }
     };
@@ -93,34 +96,35 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (dni, password) => {
     try {
-      dispatch({ type: 'SET_LOADING', payload: true });
-      const response = await axios.post('/api/auth/login', { dni, password });
-      
-      localStorage.setItem('token', response.data.token);
-      
+      dispatch({ type: "SET_LOADING", payload: true });
+      const response = await axios.post("/api/auth/login", { dni, password });
+
+      localStorage.setItem("token", response.data.token);
+
       dispatch({
-        type: 'LOGIN_SUCCESS',
-        payload: response.data
+        type: "LOGIN_SUCCESS",
+        payload: response.data,
       });
-      
+
       return response.data;
     } catch (error) {
-      const errorMessage = error.response?.data?.error || 'Error al iniciar sesión';
+      const errorMessage =
+        error.response?.data?.error || "Error al iniciar sesión";
       dispatch({
-        type: 'LOGIN_FAILURE',
-        payload: errorMessage
+        type: "LOGIN_FAILURE",
+        payload: errorMessage,
       });
       throw error;
     }
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    dispatch({ type: 'LOGOUT' });
+    localStorage.removeItem("token");
+    dispatch({ type: "LOGOUT" });
   };
 
   const clearError = () => {
-    dispatch({ type: 'CLEAR_ERROR' });
+    dispatch({ type: "CLEAR_ERROR" });
   };
 
   return (
@@ -129,7 +133,7 @@ export const AuthProvider = ({ children }) => {
         ...state,
         login,
         logout,
-        clearError
+        clearError,
       }}
     >
       {children}
@@ -140,7 +144,7 @@ export const AuthProvider = ({ children }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };
