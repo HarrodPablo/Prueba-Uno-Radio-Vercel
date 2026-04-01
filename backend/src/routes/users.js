@@ -7,7 +7,7 @@ const router = express.Router();
 // Get users with pagination and search
 router.get("/", authMiddleware, roleMiddleware(["ADMIN"]), async (req, res) => {
   try {
-    // const { page = 1, limit = 10, search = "", role = "" } = req.query;
+    const { page = 1, limit = 10, search = "", role = "" } = req.query;
     const skip = (page - 1) * limit;
 
     // Build where clause
@@ -15,31 +15,22 @@ router.get("/", authMiddleware, roleMiddleware(["ADMIN"]), async (req, res) => {
 
     // Add search condition
     if (search) {
-      // console.log("🔍 Adding search condition for:", search);
       where.OR = [
         { dni: { contains: search } },
         { name: { contains: search } },
       ];
-      // console.log("🔍 Search where clause:", where.OR);
     }
 
     // Add role filter
-    if (role) {
-      where.role = role;
+    if (req.query.role) {
+      where.role = req.query.role;
     }
-
-    // console.log("🔍 Final where clause:", where);
-
-    // console.log("🔍 Executing Prisma query with params:", {
-    //   where,
-    //   skip: parseInt(skip),
-    //   take: parseInt(limit),
-    // });
 
     const [users, total] = await Promise.all([
       prisma.user.findMany({
         where,
         skip: parseInt(skip),
+        take: parseInt(req.query.limit),
         take: parseInt(limit),
         select: {
           id: true,
@@ -60,8 +51,8 @@ router.get("/", authMiddleware, roleMiddleware(["ADMIN"]), async (req, res) => {
     res.json({
       users,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: parseInt(req.query.page),
+        limit: parseInt(req.query.limit),
         total,
         pages: Math.ceil(total / limit),
       },
@@ -315,7 +306,6 @@ router.delete(
           });
         } catch (cascadeError) {
           // Si la eliminación en cascada falla, intentamos eliminar manualmente
-          // console.log("🔄 Intentando eliminación manual de datos asociados...");
 
           // Eliminar informes primero
           if (user.reports.length > 0) {
