@@ -12,13 +12,13 @@ const prisma = new PrismaClient({
 });
 
 async function main() {
-  console.log("🚀 Inicializando base de datos Neon...");
+  // console.log("🚀 Inicializando base de datos Neon...");
 
   try {
     // Verificar si ya existen usuarios
     const existingUsers = await prisma.user.count();
     if (existingUsers > 0) {
-      console.log("✅ La base de datos ya tiene usuarios. No se necesita inicialización.");
+      // console.log("✅ La base de datos ya tiene usuarios. No se necesita inicialización.");
       return;
     }
 
@@ -55,15 +55,14 @@ async function main() {
       await prisma.user.create({
         data: userData,
       });
-      console.log(`✅ Usuario creado: ${userData.name} (${userData.dni})`);
+      // console.log(`✅ Usuario creado: ${userData.name} (${userData.dni})`);
     }
 
-    console.log("🎯 ¡Base de datos inicializada correctamente!");
-    console.log("\n👤 USUARIOS INICIALES:");
-    console.log("👨‍⚕️  ADMIN - DNI: 12345678, Password: 12345678");
-    console.log("👨‍⚕️  DOCTOR - DNI: 87654321, Password: 87654321");
-    console.log("👤 PATIENT - DNI: 11223344, Password: 11223344");
-    
+    // console.log("🎯 ¡Base de datos inicializada correctamente!");
+    // console.log("\n👤 USUARIOS INICIALES:");
+    // console.log("👨‍⚕️  ADMIN - DNI: 12345678, Password: 12345678");
+    // console.log("👨‍⚕️  DOCTOR - DNI: 87654321, Password: 87654321");
+    // console.log("👤 PATIENT - DNI: 11223344, Password: 11223344");
   } catch (error) {
     console.error("❌ Error al inicializar la base de datos:", error);
     throw error;

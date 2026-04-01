@@ -7,13 +7,7 @@ const router = express.Router();
 // Get users with pagination and search
 router.get("/", authMiddleware, roleMiddleware(["ADMIN"]), async (req, res) => {
   try {
-    const { page = 1, limit = 10, search = "", role = "" } = req.query;
-    console.log("🔍 Users endpoint - Query params:", {
-      page,
-      limit,
-      search,
-      role,
-    });
+    // const { page = 1, limit = 10, search = "", role = "" } = req.query;
     const skip = (page - 1) * limit;
 
     // Build where clause
@@ -21,12 +15,12 @@ router.get("/", authMiddleware, roleMiddleware(["ADMIN"]), async (req, res) => {
 
     // Add search condition
     if (search) {
-      console.log("🔍 Adding search condition for:", search);
+      // console.log("🔍 Adding search condition for:", search);
       where.OR = [
         { dni: { contains: search } },
         { name: { contains: search } },
       ];
-      console.log("🔍 Search where clause:", where.OR);
+      // console.log("🔍 Search where clause:", where.OR);
     }
 
     // Add role filter
@@ -34,13 +28,13 @@ router.get("/", authMiddleware, roleMiddleware(["ADMIN"]), async (req, res) => {
       where.role = role;
     }
 
-    console.log("🔍 Final where clause:", where);
+    // console.log("🔍 Final where clause:", where);
 
-    console.log("🔍 Executing Prisma query with params:", {
-      where,
-      skip: parseInt(skip),
-      take: parseInt(limit),
-    });
+    // console.log("🔍 Executing Prisma query with params:", {
+    //   where,
+    //   skip: parseInt(skip),
+    //   take: parseInt(limit),
+    // });
 
     const [users, total] = await Promise.all([
       prisma.user.findMany({
@@ -61,7 +55,7 @@ router.get("/", authMiddleware, roleMiddleware(["ADMIN"]), async (req, res) => {
       prisma.user.count({ where }),
     ]);
 
-    console.log("🔍 Query results:", { usersCount: users.length, total });
+    // console.log("🔍 Query results:", { usersCount: users.length, total });
 
     res.json({
       users,
@@ -304,8 +298,8 @@ router.delete(
 
       // Si tiene datos asociados, mostrar advertencia pero permitir eliminación
       if (studyCount > 0 || reportCount > 0) {
-        console.log(`⚠️ Eliminando usuario con datos asociados: ${user.name}`);
-        console.log(`📊 Estudios: ${studyCount}, Informes: ${reportCount}`);
+        // console.log(`⚠️ Eliminando usuario con datos asociados: ${user.name}`);
+        // console.log(`📊 Estudios: ${studyCount}, Informes: ${reportCount}`);
 
         // Para desarrollo, permitimos la eliminación con advertencia
         // En producción, podrías querer archivar los datos en lugar de eliminar
@@ -321,7 +315,7 @@ router.delete(
           });
         } catch (cascadeError) {
           // Si la eliminación en cascada falla, intentamos eliminar manualmente
-          console.log("🔄 Intentando eliminación manual de datos asociados...");
+          // console.log("🔄 Intentando eliminación manual de datos asociados...");
 
           // Eliminar informes primero
           if (user.reports.length > 0) {

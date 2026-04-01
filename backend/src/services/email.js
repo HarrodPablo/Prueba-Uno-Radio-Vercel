@@ -51,10 +51,10 @@ export const sendReportNotificationEmail = async (
       throw new Error(`Error al enviar email: ${error.message}`);
     }
 
-    console.log("Email enviado:", {
-      to: patientEmail,
-      id: data?.id,
-    });
+    // console.log("Email enviado:", {
+    //   to: patientEmail,
+    //   id: data?.id,
+    // });
 
     return { success: true, data };
   } catch (error) {

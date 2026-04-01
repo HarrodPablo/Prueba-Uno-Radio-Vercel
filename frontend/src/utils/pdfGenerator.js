@@ -1,6 +1,6 @@
 // Función para generar PDF de informes médicos
 export const generatePDF = (report, study) => {
-  console.log("🔍 generatePDF called with:", { report, study });
+  // console.log("🔍 generatePDF called with:", { report, study });
 
   const content = `
     <!DOCTYPE html>
@@ -79,18 +79,18 @@ export const generatePDF = (report, study) => {
   `;
 
   // Crear una nueva ventana para imprimir
-  console.log("🔍 Opening print window...");
+  // console.log("🔍 Opening print window...");
   const printWindow = window.open("", "_blank");
-  console.log("🔍 Print window opened:", !!printWindow);
+  // console.log("🔍 Print window opened:", !!printWindow);
 
   if (printWindow) {
     printWindow.document.write(content);
     printWindow.document.close();
-    console.log("🔍 Content written to print window");
+    // console.log("🔍 Content written to print window");
 
     // Esperar a que cargue y luego imprimir
     printWindow.onload = function () {
-      console.log("🔍 Print window loaded, calling print()...");
+      // console.log("🔍 Print window loaded, calling print()...");
       printWindow.print();
     };
   } else {

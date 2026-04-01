@@ -10,7 +10,7 @@ const router = express.Router();
 // Endpoint temporal para crear datos de prueba (solo desarrollo)
 router.post("/create-test-data", async (req, res) => {
   try {
-    console.log("=== CREANDO DATOS DE PRUEBA ===");
+    // console.log("=== CREANDO DATOS DE PRUEBA ===");
 
     // 1. Buscar al médico 753753
     const doctor = await prisma.user.findUnique({
@@ -104,7 +104,7 @@ router.post("/create-test-data", async (req, res) => {
 // Login
 router.post("/login", async (req, res) => {
   try {
-    console.log("📥 LOGIN BODY:", req.body);
+    // console.log("📥 LOGIN BODY:", req.body);
 
     const { dni, password } = req.body;
 
@@ -118,7 +118,7 @@ router.post("/login", async (req, res) => {
       where: { dni },
     });
 
-    console.log("👤 USER FOUND:", user);
+    // console.log("👤 USER FOUND:", user);
 
     if (!user) {
       return res.status(401).json({
@@ -129,7 +129,7 @@ router.post("/login", async (req, res) => {
     // ⚠️ ACÁ PUEDE ESTAR EL ERROR
     const isMatch = await bcrypt.compare(password, user.password);
 
-    console.log("🔐 PASSWORD MATCH:", isMatch);
+    // console.log("🔐 PASSWORD MATCH:", isMatch);
 
     if (!isMatch) {
       return res.status(401).json({
@@ -183,7 +183,7 @@ router.post(
   roleMiddleware(["ADMIN"]),
   async (req, res) => {
     try {
-      console.log("🔄 Generando estudios automáticos para pacientes...");
+      // console.log("🔄 Generando estudios automáticos para pacientes...");
 
       // Obtener todos los pacientes
       const patients = await prisma.user.findMany({

@@ -69,7 +69,7 @@ app.use("/api/unified", unifiedRoutes);
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en puerto ${PORT}`);
+  // console.log(`Servidor corriendo en puerto ${PORT}`);
 });
 
 export default app;

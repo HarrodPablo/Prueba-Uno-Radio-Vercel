@@ -12,7 +12,6 @@ const Unified = () => {
   const [showCreateReportModal, setShowCreateReportModal] = useState(false);
   const [showEditReportModal, setShowEditReportModal] = useState(false);
   const [showImageViewer, setShowImageViewer] = useState(false);
-  const [selectedImage, setSelectedImage] = useState(null);
   const [reportContent, setReportContent] = useState("");
   const [selectedReport, setSelectedReport] = useState(null);
   const [filters, setFilters] = useState({
@@ -179,7 +178,7 @@ const Unified = () => {
   };
 
   const handleViewImage = (item) => {
-    console.log("Unified - handleViewImage:", item);
+    // console.log("Unified - handleViewImage:", item);
     if (item.imageUrl) {
       setSelectedStudy(item);
       setShowImageViewer(true);
@@ -190,7 +189,6 @@ const Unified = () => {
 
   const handleCloseImageViewer = () => {
     setShowImageViewer(false);
-    setSelectedImage(null);
   };
 
   if (loading) {

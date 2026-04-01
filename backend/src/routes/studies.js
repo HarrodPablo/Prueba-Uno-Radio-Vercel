@@ -235,11 +235,11 @@ router.post(
         },
       });
 
-      console.log("✅ STUDY CREATED:", study.id);
+      // console.log("✅ STUDY CREATED:", study.id);
 
       // Si hay archivos, procesarlos inmediatamente
       if (req.files && req.files.length > 0) {
-        console.log(`📸 Processing ${req.files.length} uploaded files...`);
+        // console.log(`📸 Processing ${req.files.length} uploaded files...`);
 
         const processedImages = [];
 
@@ -349,7 +349,7 @@ router.put(
 
       // Si hay archivos, procesarlos y actualizar la imagen
       if (req.files && req.files.length > 0) {
-        console.log(`📸 Processing ${req.files.length} files for update...`);
+        // console.log(`📸 Processing ${req.files.length} files for update...`);
 
         const processedImages = [];
 

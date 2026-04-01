@@ -11,12 +11,12 @@ router.get(
   roleMiddleware(["ADMIN", "DOCTOR", "PATIENT"]),
   async (req, res) => {
     try {
-      console.log("🔍 Unified endpoint - User:", {
-        id: req.user.id,
-        role: req.user.role,
-        name: req.user.name,
-      });
-      console.log("🔍 Unified endpoint - Query params:", req.query);
+      // console.log("🔍 Unified endpoint - User:", {
+      //   id: req.user.id,
+      //   role: req.user.role,
+      //   name: req.user.name,
+      // });
+      // console.log("🔍 Unified endpoint - Query params:", req.query);
 
       const {
         page = 1,
