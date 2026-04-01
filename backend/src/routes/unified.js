@@ -1,16 +1,23 @@
 import express from "express";
 import { prisma } from "../lib/prisma.js";
+import { authMiddleware, roleMiddleware } from "../middleware/auth.js";
 
 const router = express.Router();
 
 // Get unified view - patients, studies and reports all in one
 router.get(
   "/",
-  /* authMiddleware, roleMiddleware(["ADMIN", "DOCTOR"]) */ async (
-    req,
-    res,
-  ) => {
+  authMiddleware,
+  roleMiddleware(["ADMIN", "DOCTOR", "PATIENT"]),
+  async (req, res) => {
     try {
+      console.log("🔍 Unified endpoint - User:", {
+        id: req.user.id,
+        role: req.user.role,
+        name: req.user.name,
+      });
+      console.log("🔍 Unified endpoint - Query params:", req.query);
+
       const {
         page = 1,
         limit = 10,
@@ -23,12 +30,14 @@ router.get(
       // Build where clause for patients
       const patientWhere = search
         ? {
-            OR: [
-              { name: { contains: search, mode: "insensitive" } },
-              { dni: { contains: search, mode: "insensitive" } },
-            ],
+            OR: [{ name: { contains: search } }, { dni: { contains: search } }],
           }
         : {};
+
+      // For PATIENTS, only show their own data
+      if (req.user.role === "PATIENT") {
+        patientWhere.id = req.user.id;
+      }
 
       // Get all patients with their studies and reports
       const patients = await prisma.user.findMany({
@@ -102,6 +111,7 @@ router.get(
               patientDni: patient.dni,
               studyDate: study.date,
               studyType: study.type,
+              notes: study.notes,
               doctorName: study.doctor.name,
               hasReport: study.reports.length > 0,
               studyId: study.id,
@@ -119,6 +129,7 @@ router.get(
                 id: study.id,
                 type: study.type,
                 date: study.date,
+                notes: study.notes,
                 imageUrl: study.imageUrl,
                 doctor: study.doctor,
                 reports: study.reports,

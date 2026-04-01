@@ -3,7 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
+  url      = "file:./dev.db"
 }
 
 model User {
@@ -17,28 +18,31 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
   studiesAsPatient Study[]  @relation("PatientStudies")
   studiesAsDoctor  Study[]  @relation("DoctorStudies")
   reports          Report[]
+
   @@map("users")
 }
 
 model Study {
-  id        String   @id @default(cuid())
-  patientId String
-  doctorId  String
-  type      String
-  imageUrl  String?
-  notes     String?  // Mantenemos notes de la primera versión
-  date      DateTime @default(now())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id               String   @id @default(cuid())
+  patientId        String
+  doctorId         String
+  type             String
+  imageUrl         String? // Ruta relativa al WebP: uploads/radiografias/xxx.webp
+  originalFilename String? // Nombre original del archivo Agfa
+  imageWidth       Int? // Ancho en pixels (del original Agfa)
+  imageHeight      Int? // Alto en pixels (del original Agfa)
+  notes            String?
+  date             DateTime @default(now())
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  // Relations
   patient User     @relation("PatientStudies", fields: [patientId], references: [id], onDelete: Cascade)
   doctor  User     @relation("DoctorStudies", fields: [doctorId], references: [id])
   reports Report[]
+
   @@map("studies")
 }
 
@@ -50,9 +54,9 @@ model Report {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
   study  Study @relation(fields: [studyId], references: [id], onDelete: Cascade)
   doctor User  @relation(fields: [doctorId], references: [id])
+
   @@map("reports")
 }
 

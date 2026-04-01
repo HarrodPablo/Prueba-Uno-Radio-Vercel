@@ -120,7 +120,7 @@ const Reports = () => {
     }
   };
 
-  const handleSendWhatsApp = async (study) => {
+  const handleSendEmail = async (study) => {
     if (!study.reports || study.reports.length === 0) {
       alert("Este estudio no tiene informes para notificar");
       return;
@@ -128,11 +128,11 @@ const Reports = () => {
 
     try {
       const reportId = study.reports[0].id;
-      await axios.post(`/api/reports/${reportId}/send-whatsapp`);
-      alert("Notificación WhatsApp enviada exitosamente");
+      await axios.post(`/api/reports/${reportId}/send-email`);
+      alert("Notificación por email enviada exitosamente");
     } catch (err) {
-      console.error("Error sending WhatsApp:", err);
-      alert("Error al enviar notificación WhatsApp");
+      console.error("Error sending email:", err);
+      alert("Error al enviar notificación por email");
     }
   };
 
@@ -154,7 +154,7 @@ const Reports = () => {
     return (
       <Layout>
         <div className="flex items-center justify-center h-64">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          <div className="w-12 h-12 border-b-2 border-blue-600 rounded-full animate-spin"></div>
         </div>
       </Layout>
     );
@@ -163,7 +163,7 @@ const Reports = () => {
   if (error) {
     return (
       <Layout>
-        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-md">
+        <div className="px-4 py-3 text-red-600 border border-red-200 rounded-md bg-red-50">
           {error}
         </div>
       </Layout>
@@ -174,14 +174,14 @@ const Reports = () => {
     <Layout>
       <div className="px-4 py-6 sm:px-0">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">
+          <h1 className="mb-4 text-2xl font-bold text-gray-900">
             Informes Médicos
           </h1>
 
-          <div className="bg-white p-4 rounded-lg shadow mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 mb-6 bg-white rounded-lg shadow">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block mb-1 text-sm font-medium text-gray-700">
                   Buscar estudios o pacientes
                 </label>
                 <input
@@ -194,7 +194,7 @@ const Reports = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block mb-1 text-sm font-medium text-gray-700">
                   Mostrar
                 </label>
                 <select
@@ -222,7 +222,7 @@ const Reports = () => {
                       onlyWithoutReports: false,
                     })
                   }
-                  className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+                  className="px-4 py-2 text-white transition-colors bg-gray-500 rounded-md hover:bg-gray-600"
                 >
                   Limpiar filtros
                 </button>
@@ -230,11 +230,11 @@ const Reports = () => {
             </div>
           </div>
 
-          <div className="bg-white shadow rounded-lg overflow-hidden">
+          <div className="overflow-hidden bg-white rounded-lg shadow">
             {studies.length === 0 ? (
-              <div className="text-center py-12">
+              <div className="py-12 text-center">
                 <svg
-                  className="w-16 h-16 text-gray-400 mx-auto mb-4"
+                  className="w-16 h-16 mx-auto mb-4 text-gray-400"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -253,19 +253,19 @@ const Reports = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                         Fecha
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                         Paciente
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                         Tipo de Estudio
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                         Informe
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                         Acciones
                       </th>
                     </tr>
@@ -273,56 +273,56 @@ const Reports = () => {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {studies.map((study) => (
                       <tr key={study.id}>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {new Date(study.date).toLocaleDateString()}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {study.patient?.name}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                           {study.type}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <td className="px-6 py-4 text-sm whitespace-nowrap">
                           {study.reports && study.reports.length > 0 ? (
-                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                            <span className="inline-flex px-2 text-xs font-semibold leading-5 text-green-800 bg-green-100 rounded-full">
                               Creado
                             </span>
                           ) : (
-                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                            <span className="inline-flex px-2 text-xs font-semibold leading-5 text-red-800 bg-red-100 rounded-full">
                               Sin informe
                             </span>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <td className="px-6 py-4 text-sm font-medium whitespace-nowrap">
                           {study.reports && study.reports.length > 0 ? (
                             <>
                               <button
                                 onClick={() => openEditReportModal(study)}
-                                className="text-blue-600 hover:text-blue-900 mr-3"
+                                className="mr-3 text-blue-600 hover:text-blue-900"
                                 title="Editar informe"
                               >
                                 ✏️ Editar
                               </button>
                               <button
                                 onClick={() => handleViewImage(study)}
-                                className="text-green-600 hover:text-green-900 mr-3"
+                                className="mr-3 text-green-600 hover:text-green-900"
                                 title="Ver imagen"
                               >
                                 🖼️ Ver Imagen
                               </button>
                               <button
-                                onClick={() => handleSendWhatsApp(study)}
+                                onClick={() => handleSendEmail(study)}
                                 className="text-green-500 hover:text-green-700"
-                                title="Enviar notificación WhatsApp"
+                                title="Enviar notificación por email"
                               >
-                                📱 Notificar
+                                � Notificar
                               </button>
                             </>
                           ) : (
                             <>
                               <button
                                 onClick={() => openCreateReportModal(study)}
-                                className="text-blue-600 hover:text-blue-900 mr-3"
+                                className="mr-3 text-blue-600 hover:text-blue-900"
                                 title="Crear informe"
                               >
                                 📝 Crear Informe
@@ -346,14 +346,14 @@ const Reports = () => {
 
             {/* Paginación */}
             {pagination && (
-              <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-                <div className="flex-1 flex justify-between sm:hidden">
+              <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6">
+                <div className="flex justify-between flex-1 sm:hidden">
                   <button
                     onClick={() =>
                       handleFilterChange("page", pagination.page - 1)
                     }
                     disabled={pagination.page <= 1}
-                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                    className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
                   >
                     Anterior
                   </button>
@@ -362,7 +362,7 @@ const Reports = () => {
                       handleFilterChange("page", pagination.page + 1)
                     }
                     disabled={pagination.page >= pagination.pages}
-                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                    className="relative inline-flex items-center px-4 py-2 ml-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
                   >
                     Siguiente
                   </button>
@@ -387,7 +387,7 @@ const Reports = () => {
                   </div>
                   <div>
                     <nav
-                      className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px"
+                      className="relative z-0 inline-flex -space-x-px rounded-md shadow-sm"
                       aria-label="Pagination"
                     >
                       <button
@@ -395,7 +395,7 @@ const Reports = () => {
                           handleFilterChange("page", pagination.page - 1)
                         }
                         disabled={pagination.page <= 1}
-                        className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                        className="relative inline-flex items-center px-2 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50"
                       >
                         Anterior
                       </button>
@@ -404,7 +404,7 @@ const Reports = () => {
                           handleFilterChange("page", pagination.page + 1)
                         }
                         disabled={pagination.page >= pagination.pages}
-                        className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                        className="relative inline-flex items-center px-2 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-r-md hover:bg-gray-50"
                       >
                         Siguiente
                       </button>
@@ -418,13 +418,13 @@ const Reports = () => {
 
         {/* Modal Crear Informe */}
         {showCreateReportModal && selectedStudy && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-            <div className="bg-white rounded-lg w-full max-w-4xl p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+            <div className="w-full max-w-4xl p-6 bg-white rounded-lg">
+              <h2 className="mb-4 text-lg font-semibold text-gray-900">
                 Crear Informe Médico
               </h2>
 
-              <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+              <div className="p-4 mb-4 rounded-lg bg-gray-50">
                 <p className="text-sm text-gray-600">
                   <strong>Paciente:</strong> {selectedStudy.patient?.name}
                 </p>
@@ -439,7 +439,7 @@ const Reports = () => {
 
               <form onSubmit={handleCreateReport} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block mb-1 text-sm font-medium text-gray-700">
                     Contenido del Informe
                   </label>
                   <textarea
@@ -455,7 +455,7 @@ const Reports = () => {
                 <div className="flex space-x-3">
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                    className="flex-1 px-4 py-2 text-white transition-colors bg-blue-600 rounded-md hover:bg-blue-700"
                   >
                     Crear Informe
                   </button>
@@ -466,7 +466,7 @@ const Reports = () => {
                       setSelectedStudy(null);
                       setReportContent("");
                     }}
-                    className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+                    className="flex-1 px-4 py-2 text-white transition-colors bg-gray-500 rounded-md hover:bg-gray-600"
                   >
                     Cancelar
                   </button>
@@ -478,13 +478,13 @@ const Reports = () => {
 
         {/* Modal Editar Informe */}
         {showEditReportModal && selectedStudy && selectedReport && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
-            <div className="bg-white rounded-lg w-full max-w-4xl p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+            <div className="w-full max-w-4xl p-6 bg-white rounded-lg">
+              <h2 className="mb-4 text-lg font-semibold text-gray-900">
                 Editar Informe Médico
               </h2>
 
-              <div className="mb-4 p-4 bg-gray-50 rounded-lg">
+              <div className="p-4 mb-4 rounded-lg bg-gray-50">
                 <p className="text-sm text-gray-600">
                   <strong>Paciente:</strong> {selectedStudy.patient?.name}
                 </p>
@@ -499,7 +499,7 @@ const Reports = () => {
 
               <form onSubmit={handleUpdateReport} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block mb-1 text-sm font-medium text-gray-700">
                     Contenido del Informe
                   </label>
                   <textarea
@@ -515,7 +515,7 @@ const Reports = () => {
                 <div className="flex space-x-3">
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                    className="flex-1 px-4 py-2 text-white transition-colors bg-blue-600 rounded-md hover:bg-blue-700"
                   >
                     Actualizar Informe
                   </button>
@@ -527,7 +527,7 @@ const Reports = () => {
                       setSelectedReport(null);
                       setReportContent("");
                     }}
-                    className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+                    className="flex-1 px-4 py-2 text-white transition-colors bg-gray-500 rounded-md hover:bg-gray-600"
                   >
                     Cancelar
                   </button>
@@ -539,18 +539,18 @@ const Reports = () => {
 
         {/* Visor de imágenes */}
         {showImageViewer && selectedImage && (
-          <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90">
             <div className="relative max-w-6xl max-h-screen p-4">
               <button
                 onClick={handleCloseImageViewer}
-                className="absolute top-4 right-4 text-white bg-red-600 hover:bg-red-700 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                className="absolute px-3 py-2 text-sm font-medium text-white transition-colors bg-red-600 rounded-md top-4 right-4 hover:bg-red-700"
               >
                 Cerrar
               </button>
               <img
                 src={selectedImage}
                 alt="Estudio médico"
-                className="max-w-full max-h-full object-contain"
+                className="object-contain max-w-full max-h-full"
               />
             </div>
           </div>

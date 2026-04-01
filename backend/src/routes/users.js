@@ -8,6 +8,12 @@ const router = express.Router();
 router.get("/", authMiddleware, roleMiddleware(["ADMIN"]), async (req, res) => {
   try {
     const { page = 1, limit = 10, search = "", role = "" } = req.query;
+    console.log("🔍 Users endpoint - Query params:", {
+      page,
+      limit,
+      search,
+      role,
+    });
     const skip = (page - 1) * limit;
 
     // Build where clause
@@ -15,16 +21,26 @@ router.get("/", authMiddleware, roleMiddleware(["ADMIN"]), async (req, res) => {
 
     // Add search condition
     if (search) {
+      console.log("🔍 Adding search condition for:", search);
       where.OR = [
-        { dni: { contains: search, mode: "insensitive" } },
-        { name: { contains: search, mode: "insensitive" } },
+        { dni: { contains: search } },
+        { name: { contains: search } },
       ];
+      console.log("🔍 Search where clause:", where.OR);
     }
 
     // Add role filter
     if (role) {
       where.role = role;
     }
+
+    console.log("🔍 Final where clause:", where);
+
+    console.log("🔍 Executing Prisma query with params:", {
+      where,
+      skip: parseInt(skip),
+      take: parseInt(limit),
+    });
 
     const [users, total] = await Promise.all([
       prisma.user.findMany({
@@ -45,6 +61,8 @@ router.get("/", authMiddleware, roleMiddleware(["ADMIN"]), async (req, res) => {
       prisma.user.count({ where }),
     ]);
 
+    console.log("🔍 Query results:", { usersCount: users.length, total });
+
     res.json({
       users,
       pagination: {
@@ -55,7 +73,12 @@ router.get("/", authMiddleware, roleMiddleware(["ADMIN"]), async (req, res) => {
       },
     });
   } catch (error) {
-    console.error(error);
+    console.error("❌ Error in users endpoint:", error);
+    console.error("❌ Error details:", {
+      message: error.message,
+      stack: error.stack,
+      meta: error.meta,
+    });
     res.status(500).json({ error: "Server error" });
   }
 });

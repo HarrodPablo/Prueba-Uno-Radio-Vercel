@@ -1,5 +1,7 @@
 // Función para generar PDF de informes médicos
 export const generatePDF = (report, study) => {
+  console.log("🔍 generatePDF called with:", { report, study });
+
   const content = `
     <!DOCTYPE html>
     <html>
@@ -45,21 +47,21 @@ export const generatePDF = (report, study) => {
     <body>
       <div class="header">
         <h1 class="text-center">INFORME MÉDICO</h1>
-        <h2>${study.type}</h2>
+        <h2>${study.studyType || study.type || "Estudio"}</h2>
       </div>
       
       <div class="patient-info">
         <h3>Datos del Paciente</h3>
-        <p><strong>Nombre:</strong> ${study.patient.name}</p>
-        <p><strong>DNI:</strong> ${study.patient.dni}</p>
-        <p><strong>Teléfono:</strong> ${study.patient.phone}</p>
+        <p><strong>Nombre:</strong> ${study.patientName || "N/A"}</p>
+        <p><strong>DNI:</strong> ${study.patientDni || "N/A"}</p>
+        <p><strong>Teléfono:</strong> ${study.patient?.phone || "N/A"}</p>
       </div>
       
       <div class="study-info">
         <h3>Datos del Estudio</h3>
-        <p><strong>Fecha:</strong> ${new Date(study.date).toLocaleDateString("es-ES")}</p>
-        <p><strong>Tipo de Estudio:</strong> ${study.type}</p>
-        <p><strong>Médico:</strong> ${study.doctor.name}</p>
+        <p><strong>Fecha:</strong> ${new Date(study.studyDate || study.date).toLocaleDateString("es-ES")}</p>
+        <p><strong>Tipo de Estudio:</strong> ${study.studyType || study.type || "N/A"}</p>
+        <p><strong>Médico:</strong> ${study.doctorName || study.doctor?.name || "N/A"}</p>
       </div>
       
       <div class="report-content">
@@ -77,12 +79,24 @@ export const generatePDF = (report, study) => {
   `;
 
   // Crear una nueva ventana para imprimir
-  const printWindow = window.open('', '_blank');
-  printWindow.document.write(content);
-  printWindow.document.close();
-  
-  // Esperar a que cargue y luego imprimir
-  printWindow.onload = function() {
-    printWindow.print();
-  };
+  console.log("🔍 Opening print window...");
+  const printWindow = window.open("", "_blank");
+  console.log("🔍 Print window opened:", !!printWindow);
+
+  if (printWindow) {
+    printWindow.document.write(content);
+    printWindow.document.close();
+    console.log("🔍 Content written to print window");
+
+    // Esperar a que cargue y luego imprimir
+    printWindow.onload = function () {
+      console.log("🔍 Print window loaded, calling print()...");
+      printWindow.print();
+    };
+  } else {
+    console.error("❌ Failed to open print window - popup blocked?");
+    alert(
+      "No se pudo abrir la ventana de impresión. Por favor, permite las ventanas emergentes en tu navegador e intenta nuevamente.",
+    );
+  }
 };

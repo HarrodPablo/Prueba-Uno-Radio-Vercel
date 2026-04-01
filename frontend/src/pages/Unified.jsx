@@ -1,10 +1,10 @@
 import axios from "axios";
 import { useCallback, useEffect, useRef, useState } from "react";
+import DicomViewer from "../components/DicomViewer";
 import Layout from "../components/Layout";
 import { useAuth } from "../context/AuthContext";
 
 const Unified = () => {
-  console.log("Unified component - mounting"); // Debug
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -30,7 +30,6 @@ const Unified = () => {
   const debounceTimerRef = useRef(null);
 
   useEffect(() => {
-    console.log("Unified component - cleanup on unmount");
     return () => {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
@@ -61,7 +60,6 @@ const Unified = () => {
   }, [filters]);
 
   useEffect(() => {
-    console.log("Unified - useEffect triggered, calling fetchUnifiedData");
     fetchUnifiedData().catch((err) => {
       console.error("Unified - Error in useEffect:", err);
       setError("Error al cargar los datos iniciales");
@@ -165,24 +163,25 @@ const Unified = () => {
     }
   };
 
-  const handleSendWhatsApp = async (item) => {
+  const handleSendEmail = async (item) => {
     if (!item.hasReport) {
       alert("Este estudio no tiene informes para notificar");
       return;
     }
 
     try {
-      await axios.post(`/api/reports/${item.reportId}/send-whatsapp`);
-      alert("Notificación WhatsApp enviada exitosamente");
+      await axios.post(`/api/reports/${item.reportId}/send-email`);
+      alert("Notificación por email enviada exitosamente");
     } catch (err) {
-      console.error("Error sending WhatsApp:", err);
-      alert("Error al enviar notificación WhatsApp");
+      console.error("Error sending email:", err);
+      alert("Error al enviar notificación por email");
     }
   };
 
   const handleViewImage = (item) => {
+    console.log("Unified - handleViewImage:", item);
     if (item.imageUrl) {
-      setSelectedImage(item.imageUrl);
+      setSelectedStudy(item);
       setShowImageViewer(true);
     } else {
       alert("Este estudio no tiene imagen disponible");
@@ -216,16 +215,18 @@ const Unified = () => {
 
   return (
     <Layout>
-      <div className="px-4 py-6 sm:px-0">
-        <div className="mb-6">
-          <h1 className="mb-4 text-2xl font-bold text-gray-900">
-            🏥 Gestión Médica Unificada
-          </h1>
+      <div className="px-4 py-6 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto">
+          <div className="mb-6">
+            <h1 className="mb-4 text-2xl font-bold text-gray-900">
+              🏥 Gestión Médica Unificada
+            </h1>
+          </div>
 
           {/* Resumen */}
           {summary && (
             <div className="p-4 mb-6 rounded-lg shadow bg-blue-50">
-              <h3 className="mb-2 text-lg font-semibold text-blue-900">
+              <h3 className="mb-3 text-base font-semibold text-blue-900">
                 📊 Resumen General
               </h3>
               <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
@@ -443,11 +444,11 @@ const Unified = () => {
                                 🖼️ Ver Imagen
                               </button>
                               <button
-                                onClick={() => handleSendWhatsApp(item)}
+                                onClick={() => handleSendEmail(item)}
                                 className="text-green-500 hover:text-green-700"
-                                title="Enviar notificación WhatsApp"
+                                title="Enviar notificación por email"
                               >
-                                📱 Notificar
+                                📩 Notificar
                               </button>
                             </>
                           ) : (
@@ -674,22 +675,14 @@ const Unified = () => {
         )}
 
         {/* Visor de imágenes */}
-        {showImageViewer && selectedImage && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90">
-            <div className="relative max-w-6xl max-h-screen p-4">
-              <button
-                onClick={handleCloseImageViewer}
-                className="absolute px-3 py-2 text-sm font-medium text-white transition-colors bg-red-600 rounded-md top-4 right-4 hover:bg-red-700"
-              >
-                ❌ Cerrar
-              </button>
-              <img
-                src={selectedImage}
-                alt="Estudio médico"
-                className="object-contain max-w-full max-h-full"
-              />
-            </div>
-          </div>
+        {showImageViewer && selectedStudy && (
+          <DicomViewer
+            studyId={selectedStudy.studyId}
+            studyType={selectedStudy.studyType}
+            notes={selectedStudy.notes}
+            userRole={user?.role}
+            onClose={handleCloseImageViewer}
+          />
         )}
       </div>
     </Layout>

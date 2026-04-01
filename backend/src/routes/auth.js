@@ -104,42 +104,53 @@ router.post("/create-test-data", async (req, res) => {
 // Login
 router.post("/login", async (req, res) => {
   try {
+    console.log("📥 LOGIN BODY:", req.body);
+
     const { dni, password } = req.body;
 
     if (!dni || !password) {
-      return res.status(400).json({ error: "DNI and password are required" });
+      return res.status(400).json({
+        error: "DNI y password requeridos",
+      });
     }
 
     const user = await prisma.user.findUnique({
       where: { dni },
-      select: { id: true, dni: true, name: true, role: true, password: true },
     });
 
+    console.log("👤 USER FOUND:", user);
+
     if (!user) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      return res.status(401).json({
+        error: "Usuario no encontrado",
+      });
     }
 
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) {
-      return res.status(401).json({ error: "Invalid credentials" });
+    // ⚠️ ACÁ PUEDE ESTAR EL ERROR
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    console.log("🔐 PASSWORD MATCH:", isMatch);
+
+    if (!isMatch) {
+      return res.status(401).json({
+        error: "Credenciales inválidas",
+      });
     }
 
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, {
-      expiresIn: "24h",
+      expiresIn: "7d",
     });
 
     res.json({
       token,
-      user: {
-        id: user.id,
-        dni: user.dni,
-        name: user.name,
-        role: user.role,
-      },
+      user,
     });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Server error" });
+    console.error("❌ LOGIN ERROR:", error);
+
+    res.status(500).json({
+      error: error.message,
+    });
   }
 });
 
