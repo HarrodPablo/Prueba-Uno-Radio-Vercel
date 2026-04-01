@@ -1,6 +1,6 @@
 import axios from "axios";
 import { useCallback, useEffect, useState } from "react";
-import ImageViewer from "../components/ImageViewer";
+import DicomViewer from "../components/DicomViewer";
 import Layout from "../components/Layout";
 import { useAuth } from "../context/AuthContext";
 import { generatePDF } from "../utils/pdfGenerator";
@@ -23,6 +23,7 @@ const PatientDashboard = () => {
   const [pagination, setPagination] = useState(null);
 
   const fetchStudies = useCallback(async () => {
+    console.log("fetchStudies called for role:", user?.role);
     try {
       setLoading(true);
       setError(null);
@@ -32,10 +33,28 @@ const PatientDashboard = () => {
         if (value) params.append(key, value);
       });
 
-      params.append("patientId", user?.id || "");
+      // Para DOCTOR, no filtrar por patientId específico, ver todos los estudios
+      if (user?.role === "DOCTOR") {
+        // Los doctores ven todos los estudios, no filtran por patientId
+        // params.append("onlyMyStudies", "true"); // Opcional: solo sus estudios
+      } else {
+        params.append("patientId", user?.id || "");
+      }
 
-      const response = await axios.get(`/api/studies?${params}`);
-      setStudies(response.data.studies);
+      const response = await axios.get(`/api/unified?${params}`);
+      console.log("Unified response:", response.data);
+      // Filtrar solo estudios para el dashboard del paciente/doctor
+      const studies = response.data.items.filter(
+        (item) => item.type === "study",
+      );
+      console.log("Filtered studies:", studies);
+      console.log("🔍 First study structure:", studies[0]);
+      console.log("🔍 Study reports structure:", studies[0]?.study?.reports);
+      console.log("🔍 All study keys:", Object.keys(studies[0] || {}));
+      console.log("🔍 Study hasReport:", studies[0]?.hasReport);
+      console.log("🔍 Study type field:", studies[0]?.studyType);
+      console.log("🔍 Study date field:", studies[0]?.studyDate);
+      setStudies(studies);
       setPagination(response.data.pagination);
     } catch (err) {
       setError("Error al cargar los estudios");
@@ -43,7 +62,7 @@ const PatientDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters, user?.id]);
+  }, [filters, user?.id, user?.role]);
 
   useEffect(() => {
     if (user) {
@@ -59,8 +78,9 @@ const PatientDashboard = () => {
     }));
   };
 
-  const handleViewImage = (imageUrl) => {
-    setSelectedImage(imageUrl);
+  const handleViewImage = (study) => {
+    console.log("Study data:", JSON.stringify(study, null, 2));
+    setSelectedImage(study);
     setShowImageViewer(true);
   };
 
@@ -70,10 +90,33 @@ const PatientDashboard = () => {
   };
 
   const handleViewReport = (study) => {
-    if (study.reports && study.reports.length > 0) {
-      setSelectedReport(study.reports[0]);
+    console.log("🔍 handleViewReport called with study:", study);
+    console.log("🔍 study.reports:", study.study?.reports);
+    console.log("🔍 study.patientName:", study.patientName);
+    console.log("🔍 study.studyType:", study.studyType);
+    console.log("🔍 study.studyDate:", study.studyDate);
+    console.log("🔍 All study keys:", Object.keys(study));
+
+    if (
+      study.study?.reports &&
+      Array.isArray(study.study.reports) &&
+      study.study.reports.length > 0
+    ) {
+      console.log("🔍 Setting report:", study.study.reports[0]);
+      // Combinar datos del informe con datos del estudio
+      const reportWithStudyData = {
+        ...study.study.reports[0],
+        patientName: study.patientName || "N/A",
+        patientDni: study.patientDni || "N/A",
+        studyType: study.studyType || "N/A",
+        studyDate: study.studyDate || "N/A",
+        doctorName: study.doctorName || "N/A",
+      };
+      console.log("🔍 Combined report data:", reportWithStudyData);
+      setSelectedReport(reportWithStudyData);
       setShowReportModal(true);
     } else {
+      console.log(" No reports available for study");
       alert("Este estudio no tiene un informe medico disponible");
     }
   };
@@ -85,12 +128,16 @@ const PatientDashboard = () => {
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
+    console.log("🔍 formatDate input:", dateString);
     const date = new Date(dateString);
-    return date.toLocaleDateString("es-AR", {
+    console.log("🔍 formatDate parsed:", date);
+    const formatted = date.toLocaleDateString("es-AR", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
     });
+    console.log("🔍 formatDate output:", formatted);
+    return formatted;
   };
 
   const formatDateTime = (dateString) => {
@@ -138,11 +185,11 @@ const PatientDashboard = () => {
 
   return (
     <Layout>
-      <div className="px-4 py-6 sm:px-0">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-8 rounded-lg shadow bg-quinty">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="mb-4 text-lg font-medium leading-6 text-gray-900">
+      <div className="px-4 py-6 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto">
+          <div className="mb-6 rounded-lg shadow bg-quinty">
+            <div className="px-4 py-4 sm:p-5">
+              <h3 className="mb-3 text-base font-medium leading-6 text-gray-900">
                 🔍 Filtros de Historial
               </h3>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -192,8 +239,8 @@ const PatientDashboard = () => {
           </div>
 
           <div className="overflow-hidden bg-white rounded-lg shadow">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="mb-4 text-lg font-medium leading-6 text-gray-900">
+            <div className="px-4 py-4 sm:p-5">
+              <h3 className="mb-3 text-base font-medium leading-6 text-gray-900">
                 Mi Historial de Estudios
               </h3>
 
@@ -243,68 +290,63 @@ const PatientDashboard = () => {
                       {studies.map((study) => (
                         <tr key={study.id}>
                           <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                            {formatDate(study.date)}
-                            {study.imageUrl && (
-                              <div className="mt-1 text-xs text-gray-500">
-                                Imagen: {formatDateTime(study.createdAt)}
-                              </div>
-                            )}
+                            {formatDate(study.studyDate)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
+                          <td className="px-6 py-4 text-center whitespace-nowrap">
                             <span
-                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full text-center${
-                                study.type === "RX General"
+                              className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                                study.studyType === "RX General"
                                   ? "bg-blue-100 text-blue-800"
-                                  : study.type === "Tomografia"
+                                  : study.studyType === "Tomografia"
                                     ? "bg-green-100 text-green-800"
-                                    : study.type === "Resonancia"
+                                    : study.studyType === "Resonancia"
                                       ? "bg-purple-100 text-purple-800"
                                       : "bg-yellow-100 text-yellow-800"
                               }`}
                             >
-                              {study.type}
+                              {study.studyType || "Sin tipo"}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {study.reports.length > 0 ? (
-                              <div className="text-center">
-                                <span className="inline-flex px-2 mb-1 text-xs font-semibold leading-5 text-green-900 bg-green-100 rounded-full">
-                                  Con informe
-                                </span>
-                                <div className="text-xs text-gray-500">
-                                  Creado:{" "}
-                                  {formatDateTime(study.reports[0].createdAt)}
-                                </div>
-                              </div>
+                          <td className="px-6 py-4 text-center whitespace-nowrap">
+                            {study.study?.reports &&
+                            study.study.reports.length > 0 ? (
+                              <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-green-800 bg-green-100 rounded-full">
+                                Con Informe
+                              </span>
                             ) : (
-                              <span className="text-gray-400">Sin informe</span>
+                              <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-gray-800 bg-gray-100 rounded-full">
+                                Sin Informe
+                              </span>
                             )}
                           </td>
-                          <td className="px-6 py-4 text-sm font-medium whitespace-nowrap">
+                          <td className="px-6 py-4 text-sm font-medium text-center whitespace-nowrap">
                             <button
-                              onClick={() => handleViewImage(study.imageUrl)}
-                              className="mr-3 text-blue-600 hover:text-blue-900"
+                              onClick={() => handleViewImage(study)}
+                              className="px-2 py-1 mr-1 text-xs text-blue-600 border border-blue-600 rounded hover:text-blue-900"
                             >
                               Ver Imagen
                             </button>
-                            {study.reports.length > 0 && (
-                              <>
-                                <button
-                                  onClick={() => handleViewReport(study)}
-                                  className="mr-3 text-purple-600 hover:text-purple-900"
-                                >
-                                  Ver Informe
-                                </button>
-                                <button
-                                  onClick={() =>
-                                    generatePDF(study.reports[0], study)
-                                  }
-                                  className="text-green-600 hover:text-green-900"
-                                >
-                                  Descargar Informe
-                                </button>
-                              </>
-                            )}
+                            {study.study?.reports &&
+                              study.study.reports.length > 0 && (
+                                <>
+                                  <button
+                                    onClick={() => handleViewReport(study)}
+                                    className="px-2 py-1 mr-1 text-xs text-purple-600 border border-purple-600 rounded hover:text-purple-900"
+                                  >
+                                    Ver Informe
+                                  </button>
+                                  <button
+                                    onClick={() =>
+                                      study.study?.reports &&
+                                      study.study.reports[0] &&
+                                      generatePDF(study.study.reports[0], study)
+                                    }
+                                    className="px-2 py-1 text-xs text-green-600 border border-green-600 rounded hover:text-green-900"
+                                  >
+                                    Descargar
+                                  </button>
+                                </>
+                              )}
                           </td>
                         </tr>
                       ))}
@@ -405,9 +447,12 @@ const PatientDashboard = () => {
         </div>
       </div>
 
-      {showImageViewer && (
-        <ImageViewer
-          imageUrl={selectedImage}
+      {showImageViewer && selectedImage && (
+        <DicomViewer
+          studyId={selectedImage.studyId || selectedImage.study?.id}
+          studyType={selectedImage.studyType || selectedImage.study?.type}
+          notes={selectedImage.notes || selectedImage.study?.notes}
+          userRole={user?.role}
           onClose={handleCloseImageViewer}
         />
       )}
@@ -438,7 +483,7 @@ const PatientDashboard = () => {
                       Paciente:
                     </span>
                     <p className="text-sm text-gray-900">
-                      {selectedReport.study?.patient?.name}
+                      {selectedReport.patientName || "N/A"}
                     </p>
                   </div>
                   <div>
@@ -446,7 +491,7 @@ const PatientDashboard = () => {
                       Tipo de Estudio:
                     </span>
                     <p className="text-sm text-gray-900">
-                      {selectedReport.study?.type}
+                      {selectedReport.studyType || "N/A"}
                     </p>
                   </div>
                   <div>
@@ -454,7 +499,7 @@ const PatientDashboard = () => {
                       Fecha del Estudio:
                     </span>
                     <p className="text-sm text-gray-900">
-                      {formatDate(selectedReport.study?.date)}
+                      {formatDate(selectedReport.studyDate)}
                     </p>
                   </div>
                   <div>
@@ -477,23 +522,6 @@ const PatientDashboard = () => {
                     {selectedReport.content}
                   </pre>
                 </div>
-              </div>
-
-              <div className="flex justify-end mt-6 space-x-3">
-                <button
-                  onClick={() =>
-                    generatePDF(selectedReport, selectedReport.study)
-                  }
-                  className="px-4 py-2 text-white transition-colors bg-green-600 rounded-md hover:bg-green-700"
-                >
-                  Descargar PDF
-                </button>
-                <button
-                  onClick={handleCloseReportModal}
-                  className="px-4 py-2 text-white transition-colors bg-gray-500 rounded-md hover:bg-gray-600"
-                >
-                  Cerrar
-                </button>
               </div>
             </div>
           </div>

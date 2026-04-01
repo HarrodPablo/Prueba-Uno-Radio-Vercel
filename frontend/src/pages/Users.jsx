@@ -1,5 +1,5 @@
 import axios from "axios";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Layout from "../components/Layout";
@@ -26,6 +26,9 @@ const Users = () => {
   });
   const [pagination, setPagination] = useState(null);
 
+  // Ref para el input de búsqueda
+  const searchInputRef = useRef(null);
+
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
@@ -47,10 +50,6 @@ const Users = () => {
     }
   }, [filters]);
 
-  useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
-
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({
       ...prev,
@@ -59,14 +58,20 @@ const Users = () => {
     }));
   };
 
+  // Debounce mejorado para búsqueda
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      fetchUsers();
+    }, 500); // Aumentado a 500ms para menos llamadas
+
+    return () => clearTimeout(debounceTimer);
+  }, [filters.search, fetchUsers]);
+
   const handleCreateUser = async (e) => {
     e.preventDefault();
-    console.log("🚀 Iniciando creación de usuario:", formData);
-    console.log("📤 Enviando a:", "/api/users");
 
     try {
       const response = await axios.post("/api/users", formData);
-      console.log("✅ Respuesta del backend:", response.data);
 
       // Limpiar formulario
       setFormData({
@@ -79,7 +84,6 @@ const Users = () => {
       });
 
       // Mostrar mensaje de éxito con toast primero
-      console.log("🎉 Por mostrar toast de éxito...");
       toast.success(
         `✅ Usuario "${response.data.name}" creado exitosamente con DNI: ${response.data.dni}`,
         {
@@ -97,7 +101,6 @@ const Users = () => {
           },
         },
       );
-      console.log("✅ Toast de éxito mostrado");
 
       // Mayor retraso antes de cerrar modal y recargar
       setTimeout(() => {
@@ -106,9 +109,6 @@ const Users = () => {
       }, 2000); // 2 segundos para que el toast sea visible
     } catch (err) {
       console.error("❌ Error creating user:", err);
-      console.error("❌ Status:", err.response?.status);
-      console.error("❌ Error data:", err.response?.data);
-      console.error("❌ Error message:", err.message);
 
       // Manejar diferentes tipos de errores con toast
       if (err.response?.status === 400) {
@@ -256,240 +256,247 @@ const Users = () => {
 
   return (
     <Layout>
-      <div className="px-4 py-6 sm:px-0">
-        <div className="mb-6">
-          <div className="flex flex-col gap-4 mb-4 sm:flex-row sm:items-center sm:justify-between">
-            <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
-              Gestión de Usuarios
-            </h1>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="w-full px-4 py-2 text-white transition-colors rounded-md sm:w-auto bg-quinty hover:bg-cuarty"
-            >
-              Crear Usuario
-            </button>
-          </div>
+      <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
+        <div
+          className="w-full max-w-7xl mx-auto"
+          style={{ minWidth: "1280px" }}
+        >
+          <div className="mb-6">
+            <div className="flex flex-col gap-4 mb-4 sm:flex-row sm:items-center sm:justify-between">
+              <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
+                Gestión de Usuarios
+              </h1>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="w-full px-4 py-2 text-white transition-colors rounded-md sm:w-auto bg-quinty hover:bg-cuarty"
+              >
+                Crear Usuario
+              </button>
+            </div>
 
-          <div className="p-4 mb-6 rounded-lg shadow bg-quinty">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <div>
-                <label className="block mb-1 text-sm font-medium text-gray-900">
-                  🔍Buscar
-                </label>
-                <input
-                  type="text"
-                  placeholder="Buscar por nombre o DNI"
-                  value={filters.search}
-                  onChange={(e) => handleFilterChange("search", e.target.value)}
-                  autoFocus
-                  className="w-full px-3 py-2 border-gray-300 rounded-md focus:outline-none focus:ring-red-500 focus:border-yellow-950"
-                />
-              </div>
+            <div className="p-4 mb-6 rounded-lg shadow bg-quinty">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-4">
+                <div className="flex-1 min-w-0 sm:flex-initial sm:w-64 lg:w-80">
+                  <label className="block mb-1 text-sm font-medium text-gray-900">
+                    🔍Buscar
+                  </label>
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    placeholder="Buscar por nombre o DNI"
+                    value={filters.search}
+                    onChange={(e) =>
+                      handleFilterChange("search", e.target.value)
+                    }
+                    className="w-full px-3 py-2 border-gray-300 rounded-md focus:outline-none focus:ring-red-500 focus:border-yellow-950"
+                  />
+                </div>
 
-              <div>
-                <label className="block mb-1 text-sm font-medium text-gray-900">
-                  🏷️ Rol
-                </label>
-                <select
-                  value={filters.role}
-                  onChange={(e) => handleFilterChange("role", e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Todos</option>
-                  <option value="ADMIN">Administrador</option>
-                  <option value="DOCTOR">Doctor</option>
-                  <option value="PATIENT">Paciente</option>
-                </select>
-              </div>
+                <div className="w-full sm:w-48">
+                  <label className="block mb-1 text-sm font-medium text-gray-900">
+                    🏷️ Rol
+                  </label>
+                  <select
+                    value={filters.role}
+                    onChange={(e) => handleFilterChange("role", e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Todos</option>
+                    <option value="ADMIN">Administrador</option>
+                    <option value="DOCTOR">Doctor</option>
+                    <option value="PATIENT">Paciente</option>
+                  </select>
+                </div>
 
-              <div className="flex items-end">
-                <button
-                  onClick={() =>
-                    setFilters({ page: 1, limit: 10, search: "", role: "" })
-                  }
-                  className="w-full px-4 py-2 text-white transition-colors bg-gray-500 rounded-md hover:bg-gray-600"
-                >
-                  Limpiar filtros
-                </button>
+                <div className="w-full sm:w-auto">
+                  <button
+                    onClick={() =>
+                      setFilters({ page: 1, limit: 10, search: "", role: "" })
+                    }
+                    className="w-full px-4 py-2 text-white transition-colors bg-gray-500 rounded-md hover:bg-gray-600"
+                  >
+                    Limpiar filtros
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="overflow-hidden bg-white rounded-lg shadow">
-            {/* Versión Desktop - Tabla */}
-            <div className="hidden overflow-x-auto lg:block">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-quinty">
-                  <tr>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
-                      💳 DNI
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
-                      👤 Nombre
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
-                      📩 Email
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
-                      📞Teléfono
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
-                      🏷️ Rol
-                    </th>
-                    <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
-                      ⚡ Acciones
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {users.map((user) => (
-                    <tr key={user.id} className="hover:bg-primaryB">
-                      <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                        {user.dni}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                        {user.name}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                        {user.email || "No registrado"}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                        {user.phone}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
-                        <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            user.role === "ADMIN"
-                              ? "bg-purple-100 text-purple-800"
+            <div className="overflow-hidden bg-white rounded-lg shadow">
+              {/* Versión Desktop - Tabla */}
+              <div className="hidden overflow-x-auto lg:block">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-quinty">
+                    <tr>
+                      <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
+                        💳 DNI
+                      </th>
+                      <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
+                        👤 Nombre
+                      </th>
+                      <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
+                        📩 Email
+                      </th>
+                      <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
+                        📞Teléfono
+                      </th>
+                      <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
+                        🏷️ Rol
+                      </th>
+                      <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
+                        ⚡ Acciones
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {users.map((user) => (
+                      <tr key={user.id} className="hover:bg-primaryB">
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {user.dni}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {user.name}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {user.email || "No registrado"}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                          {user.phone}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
+                          <span
+                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              user.role === "ADMIN"
+                                ? "bg-purple-100 text-purple-800"
+                                : user.role === "DOCTOR"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : "bg-green-100 text-green-800"
+                            }`}
+                          >
+                            {user.role === "ADMIN"
+                              ? "Administrador"
                               : user.role === "DOCTOR"
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-green-100 text-green-800"
-                          }`}
-                        >
-                          {user.role === "ADMIN"
-                            ? "Administrador"
-                            : user.role === "DOCTOR"
-                              ? "Doctor"
-                              : "Paciente"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm font-medium whitespace-nowrap">
+                                ? "Doctor"
+                                : "Paciente"}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-sm font-medium whitespace-nowrap">
+                          <button
+                            onClick={() => openEditModal(user)}
+                            className="mr-3 text-blue-600 hover:text-blue-900"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => handleDeleteUser(user.id)}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            Eliminar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Versión Mobile - Cards */}
+              <div className="lg:hidden">
+                <div className="divide-y divide-gray-200">
+                  {users.map((user) => (
+                    <div key={user.id} className="p-4 hover:bg-gray-50">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h3 className="text-lg font-medium text-gray-900">
+                            {user.name}
+                          </h3>
+                          <div className="mt-1 space-y-1">
+                            <p className="text-sm text-gray-600">
+                              <span className="font-medium">💳 DNI:</span>{" "}
+                              {user.dni}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              <span className="font-medium">📞 Teléfono:</span>{" "}
+                              {user.phone}
+                            </p>
+                            {user.email && (
+                              <p className="text-sm text-gray-600">
+                                <span className="font-medium">📩 Email:</span>{" "}
+                                {user.email}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="ml-4">
+                          <span
+                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                              user.role === "ADMIN"
+                                ? "bg-purple-100 text-purple-800"
+                                : user.role === "DOCTOR"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : "bg-green-100 text-green-800"
+                            }`}
+                          >
+                            {user.role === "ADMIN"
+                              ? "Administrador"
+                              : user.role === "DOCTOR"
+                                ? "Doctor"
+                                : "Paciente"}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex pt-3 space-x-3 border-t border-gray-100">
                         <button
                           onClick={() => openEditModal(user)}
-                          className="mr-3 text-blue-600 hover:text-blue-900"
+                          className="flex-1 px-3 py-2 text-sm font-medium text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50"
                         >
-                          Editar
+                          ✏️ Editar
                         </button>
                         <button
                           onClick={() => handleDeleteUser(user.id)}
-                          className="text-red-600 hover:text-red-900"
+                          className="flex-1 px-3 py-2 text-sm font-medium text-red-600 border border-red-600 rounded-md hover:bg-red-50"
                         >
-                          Eliminar
+                          🗑️ Eliminar
                         </button>
-                      </td>
-                    </tr>
+                      </div>
+                    </div>
                   ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Versión Mobile - Cards */}
-            <div className="lg:hidden">
-              <div className="divide-y divide-gray-200">
-                {users.map((user) => (
-                  <div key={user.id} className="p-4 hover:bg-gray-50">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <h3 className="text-lg font-medium text-gray-900">
-                          {user.name}
-                        </h3>
-                        <div className="mt-1 space-y-1">
-                          <p className="text-sm text-gray-600">
-                            <span className="font-medium">💳 DNI:</span>{" "}
-                            {user.dni}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            <span className="font-medium">📞 Teléfono:</span>{" "}
-                            {user.phone}
-                          </p>
-                          {user.email && (
-                            <p className="text-sm text-gray-600">
-                              <span className="font-medium">📩 Email:</span>{" "}
-                              {user.email}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="ml-4">
-                        <span
-                          className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                            user.role === "ADMIN"
-                              ? "bg-purple-100 text-purple-800"
-                              : user.role === "DOCTOR"
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-green-100 text-green-800"
-                          }`}
-                        >
-                          {user.role === "ADMIN"
-                            ? "Administrador"
-                            : user.role === "DOCTOR"
-                              ? "Doctor"
-                              : "Paciente"}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex pt-3 space-x-3 border-t border-gray-100">
-                      <button
-                        onClick={() => openEditModal(user)}
-                        className="flex-1 px-3 py-2 text-sm font-medium text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50"
-                      >
-                        ✏️ Editar
-                      </button>
-                      <button
-                        onClick={() => handleDeleteUser(user.id)}
-                        className="flex-1 px-3 py-2 text-sm font-medium text-red-600 border border-red-600 rounded-md hover:bg-red-50"
-                      >
-                        🗑️ Eliminar
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                </div>
               </div>
             </div>
+
+            {pagination && pagination.pages > 1 && (
+              <div className="flex justify-center mt-6">
+                <nav className="flex items-center space-x-2">
+                  <button
+                    onClick={() =>
+                      handleFilterChange("page", Math.max(1, filters.page - 1))
+                    }
+                    disabled={filters.page === 1}
+                    className="px-3 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md bg-quinty hover:bg-cuarty disabled:opacity-50 disabled:cursor-not-allowed hover:text-gray-900"
+                  >
+                    Anterior
+                  </button>
+
+                  <span className="px-3 py-2 text-sm text-gray-700">
+                    Página {filters.page} de {pagination.pages}
+                  </span>
+
+                  <button
+                    onClick={() =>
+                      handleFilterChange(
+                        "page",
+                        Math.min(pagination.pages, filters.page + 1),
+                      )
+                    }
+                    disabled={filters.page === pagination.pages}
+                    className="px-3 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md bg-quinty hover:bg-cuarty disabled:opacity-50 disabled:cursor-not-allowed hover:text-gray-900"
+                  >
+                    Siguiente
+                  </button>
+                </nav>
+              </div>
+            )}
           </div>
-
-          {pagination && pagination.pages > 1 && (
-            <div className="flex justify-center mt-6">
-              <nav className="flex items-center space-x-2">
-                <button
-                  onClick={() =>
-                    handleFilterChange("page", Math.max(1, filters.page - 1))
-                  }
-                  disabled={filters.page === 1}
-                  className="px-3 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md bg-quinty hover:bg-cuarty disabled:opacity-50 disabled:cursor-not-allowed hover:text-gray-900"
-                >
-                  Anterior
-                </button>
-
-                <span className="px-3 py-2 text-sm text-gray-700">
-                  Página {filters.page} de {pagination.pages}
-                </span>
-
-                <button
-                  onClick={() =>
-                    handleFilterChange(
-                      "page",
-                      Math.min(pagination.pages, filters.page + 1),
-                    )
-                  }
-                  disabled={filters.page === pagination.pages}
-                  className="px-3 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md bg-quinty hover:bg-cuarty disabled:opacity-50 disabled:cursor-not-allowed hover:text-gray-900"
-                >
-                  Siguiente
-                </button>
-              </nav>
-            </div>
-          )}
         </div>
 
         {/* Modal Crear/Editar Usuario */}

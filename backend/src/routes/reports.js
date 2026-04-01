@@ -1,6 +1,7 @@
 import express from "express";
 import { prisma } from "../lib/prisma.js";
 import { authMiddleware, roleMiddleware } from "../middleware/auth.js";
+import { sendReportNotificationEmail } from "../services/email.js";
 const router = express.Router();
 
 // Get reports with filters
@@ -244,14 +245,20 @@ router.get("/:id", authMiddleware, async (req, res) => {
   }
 });
 
-// Send WhatsApp notification for report
+// Send email notification for report
 router.post(
-  "/:id/send-whatsapp",
+  "/:id/send-email",
   authMiddleware,
   roleMiddleware(["ADMIN", "DOCTOR"]),
   async (req, res) => {
     try {
       const { id } = req.params;
+      console.log("🔍 Send email notification - Report ID:", id);
+      console.log("🔍 Send email notification - User:", {
+        id: req.user.id,
+        role: req.user.role,
+        name: req.user.name,
+      });
 
       const report = await prisma.report.findUnique({
         where: { id },
@@ -278,24 +285,41 @@ router.post(
         },
       });
 
+      console.log("🔍 Send email notification - Report found:", !!report);
+      console.log(
+        "🔍 Send email notification - Report doctorId:",
+        report?.doctorId,
+      );
+
       if (!report) {
         return res.status(404).json({ error: "Report not found" });
       }
 
       if (req.user.role === "DOCTOR" && report.doctorId !== req.user.id) {
+        console.log("🔍 Access denied - DOCTOR validation:");
+        console.log("🔍 req.user.id:", req.user.id);
+        console.log("🔍 report.doctorId:", report.doctorId);
         return res.status(403).json({ error: "Access denied" });
       }
 
-      // Send WhatsApp notification
-      await sendReportReadyNotification(
-        report.study.patient,
-        report.doctor,
-        report.study.type,
+      // Send email notification
+      console.log(
+        "🔍 Send email notification - Sending email to:",
+        report.study.patient.email,
+      );
+      await sendReportNotificationEmail(
+        report.study.patient.email,
+        report.study.patient.name,
+        report.study.id,
       );
 
-      res.json({ message: "WhatsApp notification sent successfully" });
+      res.json({ message: "Email notification sent successfully" });
     } catch (error) {
-      console.error("Error sending WhatsApp notification:", error);
+      console.error("❌ Error sending email notification:", error);
+      console.error("❌ Error details:", {
+        message: error.message,
+        stack: error.stack,
+      });
       res.status(500).json({ error: "Server error" });
     }
   },

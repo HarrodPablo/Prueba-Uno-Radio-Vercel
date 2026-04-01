@@ -1,24 +1,23 @@
 import axios from "axios";
 import { useCallback, useEffect, useRef, useState } from "react";
-import ImageViewer from "../components/ImageViewer";
+import { toast } from "react-toastify";
+import DicomViewer from "../components/DicomViewer";
 import Layout from "../components/Layout";
 
 const AdminStudies = () => {
-  // useAuth hook imported but not used in this admin component
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showImageViewer, setShowImageViewer] = useState(false);
   const [selectedStudy, setSelectedStudy] = useState(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showImageViewer, setShowImageViewer] = useState(false);
-  const [selectedImage, setSelectedImage] = useState(null);
   const [users, setUsers] = useState([]);
   const [uploadData, setUploadData] = useState({
     patientDni: "",
-    type: "RX General",
+    type: "", // Campo vacío para que el administrador escriba
     date: new Date().toISOString().split("T")[0],
     notes: "",
-    imageUrl: "",
+    imageFiles: [], // Cambiado de imageFile a imageFiles (array)
   });
   const [filters, setFilters] = useState({
     page: 1,
@@ -107,6 +106,8 @@ const AdminStudies = () => {
     e.preventDefault();
     try {
       let patientId;
+      let isUpdate = false;
+      let studyId = null;
 
       // Si es un paciente sin estudios, usar el ID directamente
       if (selectedStudy?.type === "patient") {
@@ -114,6 +115,8 @@ const AdminStudies = () => {
       } else if (selectedStudy) {
         // Si es un estudio existente, usar el ID del paciente del estudio
         patientId = selectedStudy.patientId;
+        isUpdate = true;
+        studyId = selectedStudy.studyId;
       } else {
         // Si es un nuevo estudio, buscar por DNI
         const patient = users.find((u) => u.dni === uploadData.patientDni);
@@ -124,23 +127,38 @@ const AdminStudies = () => {
         patientId = patient.id;
       }
 
-      const response = await axios.post("/api/studies", {
-        patientId: patientId,
-        type: uploadData.type,
-        date: uploadData.date,
-        notes: uploadData.notes,
-        imageUrl: uploadData.imageUrl,
+      const formData = new FormData();
+      if (!isUpdate) {
+        formData.append("patientId", patientId);
+      }
+      formData.append("type", uploadData.type);
+      formData.append("date", uploadData.date);
+      formData.append("notes", uploadData.notes);
+
+      // Agregar múltiples archivos
+      if (uploadData.imageFiles && uploadData.imageFiles.length > 0) {
+        uploadData.imageFiles.forEach((file) => {
+          formData.append(`images`, file); // Mismo nombre para todos los archivos
+        });
+      }
+
+      const response = await axios.post("/api/studies", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
       });
-      console.log("Study uploaded successfully:", response.data);
+
+      // Mostrar toast de éxito
+      toast.success("✅ Radiografía subida correctamente");
 
       setShowUploadModal(false);
       setSelectedStudy(null);
       setUploadData({
         patientDni: "",
-        type: "RX General",
+        type: "", // Campo vacío para que el administrador escriba
         date: new Date().toISOString().split("T")[0],
         notes: "",
-        imageUrl: "",
+        imageFiles: [], // Resetear array de archivos
       });
       fetchUnifiedData();
     } catch (err) {
@@ -149,9 +167,9 @@ const AdminStudies = () => {
     }
   };
 
-  const handleViewImage = (imageUrl) => {
-    if (imageUrl) {
-      setSelectedImage(imageUrl);
+  const handleViewImage = (studyId) => {
+    if (studyId) {
+      setSelectedStudy({ studyId });
       setShowImageViewer(true);
     } else {
       alert("Este estudio no tiene imagen disponible");
@@ -160,7 +178,7 @@ const AdminStudies = () => {
 
   const handleCloseImageViewer = () => {
     setShowImageViewer(false);
-    setSelectedImage(null);
+    setSelectedStudy(null);
   };
 
   const formatDate = (dateString) => {
@@ -194,8 +212,8 @@ const AdminStudies = () => {
 
   return (
     <Layout>
-      <div className="px-4 py-6 sm:px-0">
-        <div className="mb-6">
+      <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
+        <div className="w-full max-w-7xl mx-auto">
           <h1 className="mb-4 text-2xl font-bold text-gray-900">
             🏥 Gestión de Estudios - Administrador
           </h1>
@@ -423,7 +441,7 @@ const AdminStudies = () => {
                             <div className="flex space-x-2">
                               {item.imageUrl && (
                                 <button
-                                  onClick={() => handleViewImage(item.imageUrl)}
+                                  onClick={() => handleViewImage(item.studyId)}
                                   className="text-blue-600 hover:text-blue-900"
                                   title="Ver imagen"
                                 >
@@ -497,7 +515,7 @@ const AdminStudies = () => {
                 <form onSubmit={handleUploadSubmit}>
                   {selectedStudy?.type === "patient" ? (
                     <div className="p-3 mb-4 rounded-md bg-blue-50">
-                      <p className="text-sm text-blue-800">
+                      <p className="text-sm text-sexty">
                         <strong>Paciente:</strong> {selectedStudy.patientName}
                         <br />
                         <strong>DNI:</strong> {selectedStudy.patientDni}
@@ -544,21 +562,16 @@ const AdminStudies = () => {
                     <label className="block mb-1 text-sm font-medium text-gray-700">
                       Tipo de Estudio
                     </label>
-                    <select
+                    <textarea
                       value={uploadData.type}
                       onChange={(e) =>
                         setUploadData({ ...uploadData, type: e.target.value })
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="RX General">RX General</option>
-                      <option value="RX Tórax">RX Tórax</option>
-                      <option value="RX Abdomen">RX Abdomen</option>
-                      <option value="RX Columna">RX Columna</option>
-                      <option value="TC">TC</option>
-                      <option value="RMN">RMN</option>
-                      <option value="Ecografía">Ecografía</option>
-                    </select>
+                      placeholder="Ej: RX General, RX Tórax, TC Craneal, RMN Columna, Ecografía Abdominal..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md resize-none focus:outline-none focus:ring-quinty focus:border-quinty"
+                      rows={2}
+                      required
+                    />
                   </div>
                   <div className="mb-4">
                     <label className="block mb-1 text-sm font-medium text-gray-700">
@@ -570,26 +583,46 @@ const AdminStudies = () => {
                       onChange={(e) =>
                         setUploadData({ ...uploadData, date: e.target.value })
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-quinty focus:border-quinty"
                       required
                     />
                   </div>
                   <div className="mb-4">
                     <label className="block mb-1 text-sm font-medium text-gray-700">
-                      URL de la Imagen
+                      Archivos de Imagen (múltiples)
                     </label>
                     <input
-                      type="url"
-                      value={uploadData.imageUrl}
+                      type="file"
+                      accept="image/*,.dcm"
+                      multiple
                       onChange={(e) =>
                         setUploadData({
                           ...uploadData,
-                          imageUrl: e.target.value,
+                          imageFiles: Array.from(e.target.files),
                         })
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="https://ejemplo.com/imagen.jpg"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-quinty focus:border-quinty"
                     />
+                    {uploadData.imageFiles &&
+                      uploadData.imageFiles.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-sm text-gray-600">
+                            {uploadData.imageFiles.length} archivo(s)
+                            seleccionado(s):
+                          </p>
+                          <div className="mt-1 overflow-y-auto border border-gray-200 rounded max-h-24">
+                            {uploadData.imageFiles.map((file, index) => (
+                              <p
+                                key={index}
+                                className="px-2 py-1 text-xs text-gray-500 truncate"
+                                title={file.name}
+                              >
+                                • {file.name}
+                              </p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                   </div>
                   <div className="mb-4">
                     <label className="block mb-1 text-sm font-medium text-gray-700">
@@ -600,7 +633,7 @@ const AdminStudies = () => {
                       onChange={(e) =>
                         setUploadData({ ...uploadData, notes: e.target.value })
                       }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-quinty focus:border-quinty"
                       rows="3"
                     />
                   </div>
@@ -618,10 +651,10 @@ const AdminStudies = () => {
                         setSelectedStudy(null);
                         setUploadData({
                           patientDni: "",
-                          type: "RX General",
+                          type: "", // Campo vacío para que el administrador escriba
                           date: new Date().toISOString().split("T")[0],
                           notes: "",
-                          imageUrl: "",
+                          imageFiles: [], // Resetear array de archivos
                         });
                       }}
                       className="flex-1 px-4 py-2 text-gray-700 transition-colors bg-gray-300 rounded-md hover:bg-gray-400"
@@ -636,8 +669,8 @@ const AdminStudies = () => {
 
           {/* Visualizador de Imágenes */}
           {showImageViewer && (
-            <ImageViewer
-              imageUrl={selectedImage}
+            <DicomViewer
+              studyId={selectedStudy?.studyId}
               onClose={handleCloseImageViewer}
             />
           )}

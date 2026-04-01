@@ -1,5 +1,7 @@
 import { FaFacebook, FaInstagram, FaWhatsapp } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import Logo from "../assets/img/Logo_Completo.png";
 import { useAuth } from "../context/AuthContext";
 
@@ -90,13 +92,13 @@ const Layout = ({ children }) => {
       </nav>
 
       {/* Main content */}
-      <main className="flex-grow py-6 mx-auto max-w-7xl sm:px-6 lg:px-8">
+      <main className="flex-1 w-full px-3 py-4 sm:px-4 sm:py-5 lg:px-6 lg:py-6">
         {children}
       </main>
 
       {/* Footer */}
       <footer className="mt-auto text-white border-t border-gray-700 bg-septy">
-        <div className="px-6 py-10 mx-auto max-w-7xl sm:px-8 lg:px-12">
+        <div className="px-4 py-6 mx-auto max-w-7xl sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
             {/* Información de la Empresa */}
             <div>
@@ -227,6 +229,19 @@ const Layout = ({ children }) => {
           </div>
         </div>
       </footer>
+      <ToastContainer
+        position="top-right"
+        autoClose={8000}
+        hideProgressBar={false}
+        newestOnTop={true}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="colored"
+        limit={3}
+      />
     </div>
   );
 };

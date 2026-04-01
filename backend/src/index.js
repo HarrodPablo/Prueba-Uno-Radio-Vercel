@@ -1,50 +1,75 @@
+// src/index.js — agregá compression() y sirve los uploads
+import compression from "compression"; // npm install compression
 import cors from "cors";
-import "dotenv/config";
+import dotenv from "dotenv";
 import express from "express";
+import path from "path";
+import { fileURLToPath } from "url";
 
-import { PrismaPg } from "@prisma/adapter-pg";
-import pg from "pg"; // Necesitás importar pg para el adaptador
-// 1. Borramos dotenv.config(), ya no es necesario por el import de arriba.
+dotenv.config();
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Importar rutas
+import authRoutes from "./routes/auth.js";
+import patientsRoutes from "./routes/patients.js";
+import reportsRoutes from "./routes/reports.js";
+import studiesRoutes from "./routes/studies.js";
+import unifiedRoutes from "./routes/unified.js";
+import usersRoutes from "./routes/users.js";
 
 const app = express();
-
-// 2. Configuración del Adaptador de Prisma (Neon usa Postgres)
-const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-const adapter = new PrismaPg(pool);
-
 const PORT = process.env.PORT || 3000;
 
-// Middleware
+// ─── Middlewares globales ──────────────────────────────────────
 app.use(cors());
-app.use(express.json({ limit: "50mb" })); // Aumentado para imágenes base64
-app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
-// 3. Rutas (Cambiamos 'require' por 'import' dinámico o estático)
-// IMPORTANTE: Asegurate de que estos archivos existan y usen 'export default'
-import authRoutes from "./routes/auth.js";
-import patientRoutes from "./routes/patients.js";
-import reportRoutes from "./routes/reports.js";
-import studyRoutes from "./routes/studies.js";
-import unifiedRoutes from "./routes/unified.js";
-import userRoutes from "./routes/users.js";
+// GZIP — comprime TODAS las respuestas automáticamente
+// Los WebP ya están comprimidos, pero comprime JSON, JS, etc.
+// Para binarios grandes usa threshold alto para no gastar CPU
+app.use(
+  compression({
+    threshold: 10 * 1024, // solo comprimir si > 10KB
+    filter: (req, res) => {
+      // No comprimir WebP (ya están comprimidos internamente)
+      if (res.getHeader("Content-Type")?.includes("image/webp")) return false;
+      return compression.filter(req, res);
+    },
+  }),
+);
 
-app.get("/", (req, res) => {
-  res.json({ message: "Portal Médico API" });
-});
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
+// ─── Servir archivos de uploads (WebP) ───────────────────────
+// Esto permite que el frontend pueda acceder a las imágenes
+// directamente via /uploads/radiografias/archivo.webp
+// (opcional si preferís servirlos solo via la API)
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "..", "uploads"), {
+    maxAge: "1h", // cachear en browser 1 hora
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith(".webp")) {
+        res.setHeader("Content-Type", "image/webp");
+      }
+    },
+  }),
+);
+
+// ─── Rutas ────────────────────────────────────────────────────
 app.use("/api/auth", authRoutes);
-app.use("/api/patients", patientRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/studies", studyRoutes);
-app.use("/api/reports", reportRoutes);
+app.use("/api/studies", studiesRoutes);
+app.use("/api/patients", patientsRoutes);
+app.use("/api/reports", reportsRoutes);
+app.use("/api/users", usersRoutes);
 app.use("/api/unified", unifiedRoutes);
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: "Something went wrong!" });
-});
+// ─── Health check ─────────────────────────────────────────────
+app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Servidor corriendo en puerto ${PORT}`);
 });
+
+export default app;

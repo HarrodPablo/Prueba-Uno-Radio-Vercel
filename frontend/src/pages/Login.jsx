@@ -27,7 +27,7 @@ const Login = () => {
   };
 
   return (
-    <div className="flex flex-col justify-center min-h-screen px-4 py-8 bg-gradient-to-br from-gray-50 to-gray-100 sm:px-6 lg:px-8">
+    <div className="flex flex-col justify-center min-h-screen px-4 py-8 bg-primaryB from-gray-50 to-gray-100 sm:px-6 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-md">
         {/* Logo centrado y más grande */}
         <div className="flex justify-center mb-8">
