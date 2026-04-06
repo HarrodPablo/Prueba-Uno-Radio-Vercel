@@ -258,7 +258,7 @@ const Users = () => {
     <Layout>
       <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
         <div
-          className="w-full max-w-7xl mx-auto"
+          className="w-full mx-auto max-w-7xl"
           style={{ minWidth: "1280px" }}
         >
           <div className="mb-6">
@@ -350,16 +350,16 @@ const Users = () => {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {users.map((user) => (
                       <tr key={user.id} className="hover:bg-primaryB">
-                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                        <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
                           {user.dni}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                        <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
                           {user.name}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                        <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
                           {user.email || "No registrado"}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                        <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
                           {user.phone}
                         </td>
                         <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
@@ -379,7 +379,7 @@ const Users = () => {
                                 : "Paciente"}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-sm font-medium whitespace-nowrap">
+                        <td className="px-6 py-4 text-sm font-medium text-center whitespace-nowrap">
                           <button
                             onClick={() => openEditModal(user)}
                             className="mr-3 text-blue-600 hover:text-blue-900"

@@ -234,7 +234,18 @@ const Calendar = () => {
                 <div>
                   <span className="font-medium text-gray-700">Fecha:</span>
                   <p className="text-gray-900">
-                    {new Date(selectedStudy.date).toLocaleDateString("es-ES")}
+                    {(() => {
+                      const date = new Date(selectedStudy.date);
+                      const localDate = new Date(
+                        date.getTime() + date.getTimezoneOffset() * 60000,
+                      );
+                      return localDate.toLocaleDateString("es-AR", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                        timeZone: "America/Argentina/Buenos_Aires",
+                      });
+                    })()}
                   </p>
                 </div>
                 <div>

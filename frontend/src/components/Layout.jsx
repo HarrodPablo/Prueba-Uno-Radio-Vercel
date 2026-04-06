@@ -118,7 +118,7 @@ const Layout = ({ children }) => {
                       clipRule="evenodd"
                     />
                   </svg>
-                  Lobo de la Vega XXXX, Yerba Buena
+                  Lobo de la Vega 301, Clinica del Pilar - Yerba Buena
                 </p>
                 <p className="flex items-center text-sm text-gray-300">
                   <svg
@@ -152,7 +152,7 @@ const Layout = ({ children }) => {
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <div className="text-center">
                   <a
-                    href="https://www.instagram.com/diagnosticolopez"
+                    href="https://www.instagram.com/lic.melirlopez/"
                     target="_blank"
                     className="flex flex-col items-center p-2 space-y-1 transition-all duration-300 transform rounded-md group bg-gradient-to-br from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 hover:scale-105"
                     title="Instagram"

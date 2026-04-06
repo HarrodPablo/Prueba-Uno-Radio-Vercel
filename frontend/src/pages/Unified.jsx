@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import DicomViewer from "../components/DicomViewer";
 import Layout from "../components/Layout";
 import { useAuth } from "../context/AuthContext";
+import {toast} from "react-toastify"
 
 const Unified = () => {
   const [items, setItems] = useState([]);
@@ -109,7 +110,20 @@ const Unified = () => {
       setSelectedStudy(null);
       setReportContent("");
       fetchUnifiedData();
-      alert("Informe creado exitosamente");
+      toast.success(`✅ Informe creado exitosamente`, {
+        autoClose: 15000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        position: "top-right",
+        style: {
+          background: "linear-gradient(to right, #00b09b, #96c93d)",
+          fontSize: "16px",
+          fontWeight: "bold",
+          padding: "16px",
+        },
+      });
     } catch (err) {
       setError("Error al crear informe");
       console.error("Error creating report:", err);
@@ -124,7 +138,20 @@ const Unified = () => {
 
   const openEditReportModal = (item) => {
     if (!item.hasReport) {
-      alert("Este estudio no tiene informes para editar");
+      toast.error("❌ Este estudio no tiene informes para editar", {
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        position: "top-right",
+        style: {
+          background: "linear-gradient(to right, #ff416c, #ff4b2b)",
+          fontSize: "14px",
+          fontWeight: "bold",
+          padding: "12px",
+        },
+      });
       return;
     }
 
@@ -139,7 +166,20 @@ const Unified = () => {
       })
       .catch((err) => {
         console.error("Error fetching report:", err);
-        alert("Error al cargar el informe");
+        toast.error("❌ Error al cargar el informe", {
+          autoClose: 8000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          position: "top-right",
+          style: {
+            background: "linear-gradient(to right, #ff416c, #ff4b2b)",
+            fontSize: "14px",
+            fontWeight: "bold",
+            padding: "12px",
+          },
+        });
       });
   };
 
@@ -155,7 +195,20 @@ const Unified = () => {
       setSelectedReport(null);
       setReportContent("");
       fetchUnifiedData();
-      alert("Informe actualizado exitosamente");
+      toast.success(`✅ Informe actualizado exitosamente`, {
+        autoClose: 15000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        position: "top-right",
+        style: {
+          background: "linear-gradient(to right, #00b09b, #96c93d)",
+          fontSize: "16px",
+          fontWeight: "bold",
+          padding: "16px",
+        },
+      });
     } catch (err) {
       setError("Error al actualizar informe");
       console.error("Error updating report:", err);
@@ -164,16 +217,55 @@ const Unified = () => {
 
   const handleSendEmail = async (item) => {
     if (!item.hasReport) {
-      alert("Este estudio no tiene informes para notificar");
+      toast.error("❌ Este estudio no tiene informes para notificar", {
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        position: "top-right",
+        style: {
+          background: "linear-gradient(to right, #ff416c, #ff4b2b)",
+          fontSize: "14px",
+          fontWeight: "bold",
+          padding: "12px",
+        },
+      });
       return;
     }
 
     try {
       await axios.post(`/api/reports/${item.reportId}/send-email`);
-      alert("Notificación por email enviada exitosamente");
+      toast.success(`✅ Notificación por email enviada exitosamente`, {
+        autoClose: 15000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        position: "top-right",
+        style: {
+          background: "linear-gradient(to right, #00b09b, #96c93d)",
+          fontSize: "16px",
+          fontWeight: "bold",
+          padding: "16px",
+        },
+      });
     } catch (err) {
       console.error("Error sending email:", err);
-      alert("Error al enviar notificación por email");
+      toast.error("❌ Error al enviar notificación por email", {
+        autoClose: 8000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        position: "top-right",
+        style: {
+          background: "linear-gradient(to right, #ff416c, #ff4b2b)",
+          fontSize: "14px",
+          fontWeight: "bold",
+          padding: "12px",
+        },
+      });
     }
   };
 
@@ -183,7 +275,20 @@ const Unified = () => {
       setSelectedStudy(item);
       setShowImageViewer(true);
     } else {
-      alert("Este estudio no tiene imagen disponible");
+      toast.error("❌ Este estudio no tiene imagen disponible", {
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        position: "top-right",
+        style: {
+          background: "linear-gradient(to right, #ff416c, #ff4b2b)",
+          fontSize: "14px",
+          fontWeight: "bold",
+          padding: "12px",
+        },
+      });
     }
   };
 
@@ -399,9 +504,19 @@ const Unified = () => {
                           </div>
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                          {item.studyDate
-                            ? new Date(item.studyDate).toLocaleDateString()
-                            : "-"}
+                          {(() => {
+                            if (!item.studyDate) return "-";
+                            const date = new Date(item.studyDate);
+                            const localDate = new Date(
+                              date.getTime() + date.getTimezoneOffset() * 60000,
+                            );
+                            return localDate.toLocaleDateString("es-AR", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              timeZone: "America/Argentina/Buenos_Aires",
+                            });
+                          })()}
                         </td>
                         <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
                           {item.studyType}
@@ -564,9 +679,19 @@ const Unified = () => {
                 </p>
                 <p className="text-sm text-gray-600">
                   <strong>📅 Fecha:</strong>{" "}
-                  {selectedStudy.studyDate
-                    ? new Date(selectedStudy.studyDate).toLocaleDateString()
-                    : "-"}
+                  {(() => {
+                    if (!selectedStudy.studyDate) return "-";
+                    const date = new Date(selectedStudy.studyDate);
+                    const localDate = new Date(
+                      date.getTime() + date.getTimezoneOffset() * 60000,
+                    );
+                    return localDate.toLocaleDateString("es-AR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      timeZone: "America/Argentina/Buenos_Aires",
+                    });
+                  })()}
                 </p>
               </div>
 
@@ -626,9 +751,19 @@ const Unified = () => {
                 </p>
                 <p className="text-sm text-gray-600">
                   <strong>📅 Fecha:</strong>{" "}
-                  {selectedStudy.studyDate
-                    ? new Date(selectedStudy.studyDate).toLocaleDateString()
-                    : "-"}
+                  {(() => {
+                    if (!selectedStudy.studyDate) return "-";
+                    const date = new Date(selectedStudy.studyDate);
+                    const localDate = new Date(
+                      date.getTime() + date.getTimezoneOffset() * 60000,
+                    );
+                    return localDate.toLocaleDateString("es-AR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      timeZone: "America/Argentina/Buenos_Aires",
+                    });
+                  })()}
                 </p>
               </div>
 

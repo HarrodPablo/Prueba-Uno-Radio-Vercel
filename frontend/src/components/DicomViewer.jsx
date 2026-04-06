@@ -5,6 +5,7 @@
 // ─────────────────────────────────────────────────────────────
 import axios from "axios";
 import { useCallback, useEffect, useRef, useState } from "react";
+import Icon from "../assets/img/icon.png"
 
 // ─── Helpers ───────────────────────────────────────────────────
 const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
@@ -356,13 +357,15 @@ const DicomViewer = ({
       {/* HEADER */}
       <div className="flex items-center justify-between flex-shrink-0 px-4 py-2 bg-gray-900 border-b border-gray-800">
         <div className="flex items-center gap-3">
-          <span className="text-lg">🩻</span>
+          <span className="w-10 h-10">
+            <img src={Icon} alt="Icon" />
+          </span>
           <div>
-            <h3 className="text-sm font-semibold text-white">
-              {studyType ?? "Radiografía"} — Agfa DR100e
+            <h3 className="font-semibold text-white text-s">
+              {studyType ?? "Radiografía"}
             </h3>
             {allImages.length > 1 && (
-              <p className="text-xs text-gray-400">
+              <p className="text-gray-400 text-s">
                 Imagen {currentImageIndex + 1} de {allImages.length}
               </p>
             )}

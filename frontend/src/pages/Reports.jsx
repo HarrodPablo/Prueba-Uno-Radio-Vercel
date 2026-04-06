@@ -1,5 +1,6 @@
 import axios from "axios";
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "react-toastify";
 import Layout from "../components/Layout";
 
 const Reports = () => {
@@ -76,7 +77,20 @@ const Reports = () => {
       setSelectedStudy(null);
       setReportContent("");
       fetchStudies();
-      alert("Informe creado exitosamente");
+      toast.success(`✅ Informe creado exitosamente`, {
+        autoClose: 15000, // 15 segundos
+        hideProgressBar: false,
+        closeOnClick: false, // No cerrar al hacer clic
+        pauseOnHover: true,
+        draggable: true,
+        position: "top-right", // Esquina superior derecha
+        style: {
+          background: "linear-gradient(to right, #00b09b, #96c93d)",
+          fontSize: "16px",
+          fontWeight: "bold",
+          padding: "16px",
+        },
+      });
     } catch (err) {
       setError("Error al crear informe");
       console.error("Error creating report:", err);
@@ -91,7 +105,20 @@ const Reports = () => {
 
   const openEditReportModal = (study) => {
     if (!study.reports || study.reports.length === 0) {
-      alert("Este estudio no tiene informes para editar");
+      toast.error("❌ Este estudio no tiene informes para editar", {
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        position: "top-right",
+        style: {
+          background: "linear-gradient(to right, #ff416c, #ff4b2b)",
+          fontSize: "14px",
+          fontWeight: "bold",
+          padding: "12px",
+        },
+      });
       return;
     }
 
@@ -113,7 +140,20 @@ const Reports = () => {
       setSelectedReport(null);
       setReportContent("");
       fetchStudies();
-      alert("Informe actualizado exitosamente");
+      toast.success(`✅ Informe actualizado exitosamente`, {
+        autoClose: 15000, // 15 segundos
+        hideProgressBar: false,
+        closeOnClick: false, // No cerrar al hacer clic
+        pauseOnHover: true,
+        draggable: true,
+        position: "top-right", // Esquina superior derecha
+        style: {
+          background: "linear-gradient(to right, #00b09b, #96c93d)",
+          fontSize: "16px",
+          fontWeight: "bold",
+          padding: "16px",
+        },
+      });
     } catch (err) {
       setError("Error al actualizar informe");
       console.error("Error updating report:", err);
@@ -122,17 +162,56 @@ const Reports = () => {
 
   const handleSendEmail = async (study) => {
     if (!study.reports || study.reports.length === 0) {
-      alert("Este estudio no tiene informes para notificar");
+      toast.error("❌ Este estudio no tiene informes para notificar", {
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        position: "top-right",
+        style: {
+          background: "linear-gradient(to right, #ff416c, #ff4b2b)",
+          fontSize: "14px",
+          fontWeight: "bold",
+          padding: "12px",
+        },
+      });
       return;
     }
 
     try {
       const reportId = study.reports[0].id;
       await axios.post(`/api/reports/${reportId}/send-email`);
-      alert("Notificación por email enviada exitosamente");
+      toast.success(`✅ Notificación por email enviada exitosamente`, {
+        autoClose: 15000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        position: "top-right",
+        style: {
+          background: "linear-gradient(to right, #00b09b, #96c93d)",
+          fontSize: "16px",
+          fontWeight: "bold",
+          padding: "16px",
+        },
+      });
     } catch (err) {
       console.error("Error sending email:", err);
-      alert("Error al enviar notificación por email");
+      toast.error("❌ Error al enviar notificación por email", {
+        autoClose: 8000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        position: "top-right",
+        style: {
+          background: "linear-gradient(to right, #ff416c, #ff4b2b)",
+          fontSize: "14px",
+          fontWeight: "bold",
+          padding: "12px",
+        },
+      });
     }
   };
 
@@ -141,7 +220,20 @@ const Reports = () => {
       setSelectedImage(study.imageUrl);
       setShowImageViewer(true);
     } else {
-      alert("Este estudio no tiene imagen disponible");
+      toast.error("❌ Este estudio no tiene imagen disponible", {
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        position: "top-right",
+        style: {
+          background: "linear-gradient(to right, #ff416c, #ff4b2b)",
+          fontSize: "14px",
+          fontWeight: "bold",
+          padding: "12px",
+        },
+      });
     }
   };
 

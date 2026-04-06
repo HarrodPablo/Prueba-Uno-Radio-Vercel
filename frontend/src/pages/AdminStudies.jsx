@@ -182,11 +182,20 @@ const AdminStudies = () => {
   };
 
   const formatDate = (dateString) => {
+    if (!dateString) return "N/A";
     const date = new Date(dateString);
-    return date.toLocaleDateString("es-ES", {
+    if (isNaN(date.getTime())) return "N/A";
+
+    // Ajustar para evitar problemas de zona horaria
+    const localDate = new Date(
+      date.getTime() + date.getTimezoneOffset() * 60000,
+    );
+
+    return localDate.toLocaleDateString("es-AR", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
+      timeZone: "America/Argentina/Buenos_Aires",
     });
   };
 
@@ -213,12 +222,12 @@ const AdminStudies = () => {
   return (
     <Layout>
       <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
-        <div className="w-full max-w-7xl mx-auto">
+        <div className="w-full mx-auto max-w-7xl">
           <h1 className="mb-4 text-2xl font-bold text-gray-900">
             🏥 Gestión de Estudios - Administrador
           </h1>
 
-          {/* Resumen */}
+          {/* Resumen 
           {summary && (
             <div className="p-4 mb-6 rounded-lg shadow bg-blue-50">
               <h3 className="mb-2 text-lg font-semibold text-gray-900">
@@ -257,9 +266,9 @@ const AdminStudies = () => {
                 </div>
               </div>
             </div>
-          )}
+          )}*/}
 
-          {/* Filtros */}
+          {/* Filtros 
           <div className="p-4 mb-6 rounded-lg shadow bg-quinty">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
               <div>
@@ -335,7 +344,7 @@ const AdminStudies = () => {
                 </button>
               </div>
             </div>
-          </div>
+          </div>*/}
 
           {/* Tabla Unificada */}
           <div className="overflow-hidden bg-white rounded-lg shadow">
@@ -392,12 +401,12 @@ const AdminStudies = () => {
                         }`}
                       >
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                          <div className="font-medium">{item.patientName}</div>
-                          <div className="text-gray-500">
+                          <div className="font-medium text-center">{item.patientName}</div>
+                          <div className="text-center text-gray-500">
                             DNI: {item.patientDni}
                           </div>
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-900 text-cente whitespace-nowrap">
+                        <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
                           {item.studyDate ? formatDate(item.studyDate) : "-"}
                         </td>
                         <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
@@ -438,7 +447,7 @@ const AdminStudies = () => {
                               📤 Subir Radiografía
                             </button>
                           ) : (
-                            <div className="flex space-x-2">
+                            <div className="flex justify-center space-x-2">
                               {item.imageUrl && (
                                 <button
                                   onClick={() => handleViewImage(item.studyId)}

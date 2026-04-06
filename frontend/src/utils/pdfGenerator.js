@@ -2,6 +2,24 @@
 export const generatePDF = (report, study) => {
   // console.log("🔍 generatePDF called with:", { report, study });
 
+  const formatStudyDate = (dateString) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return "N/A";
+
+    // Ajustar para evitar problemas de zona horaria
+    const localDate = new Date(
+      date.getTime() + date.getTimezoneOffset() * 60000,
+    );
+
+    return localDate.toLocaleDateString("es-AR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      timeZone: "America/Argentina/Buenos_Aires",
+    });
+  };
+
   const content = `
     <!DOCTYPE html>
     <html>
@@ -59,7 +77,7 @@ export const generatePDF = (report, study) => {
       
       <div class="study-info">
         <h3>Datos del Estudio</h3>
-        <p><strong>Fecha:</strong> ${new Date(study.studyDate || study.date).toLocaleDateString("es-ES")}</p>
+        <p><strong>Fecha:</strong> ${formatStudyDate(study.studyDate || study.date)}</p>
         <p><strong>Tipo de Estudio:</strong> ${study.studyType || study.type || "N/A"}</p>
         <p><strong>Médico:</strong> ${study.doctorName || study.doctor?.name || "N/A"}</p>
       </div>
@@ -71,8 +89,8 @@ export const generatePDF = (report, study) => {
       
  
       <div class="footer">
-        <p>Portal Médico - Sistema de Gestión de Estudios Radiológicos</p>
-        <p>Generado el ${new Date().toLocaleDateString("es-ES")} a las ${new Date().toLocaleTimeString("es-ES")}</p>
+        <p>Diagnóstico por Imágenes López</p>
+        <p>Generado el ${new Date().toLocaleDateString("es-AR")}</p>
       </div>
     </body>
     </html>

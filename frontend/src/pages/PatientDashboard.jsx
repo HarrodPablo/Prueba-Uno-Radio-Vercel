@@ -131,10 +131,17 @@ const PatientDashboard = () => {
     // console.log("🔍 formatDate input:", dateString);
     const date = new Date(dateString);
     // console.log("🔍 formatDate parsed:", date);
-    const formatted = date.toLocaleDateString("es-AR", {
+
+    // Ajustar para evitar problemas de zona horaria
+    const localDate = new Date(
+      date.getTime() + date.getTimezoneOffset() * 60000,
+    );
+
+    const formatted = localDate.toLocaleDateString("es-AR", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
+      timeZone: "America/Argentina/Buenos_Aires",
     });
     // console.log("🔍 formatDate output:", formatted);
     return formatted;
@@ -187,6 +194,7 @@ const PatientDashboard = () => {
     <Layout>
       <div className="px-4 py-6 sm:px-6 lg:px-8">
         <div className="max-w-5xl mx-auto">
+          {/*
           <div className="mb-6 rounded-lg shadow bg-quinty">
             <div className="px-4 py-4 sm:p-5">
               <h3 className="mb-3 text-base font-medium leading-6 text-gray-900">
@@ -237,7 +245,7 @@ const PatientDashboard = () => {
               </div>
             </div>
           </div>
-
+*/}
           <div className="overflow-hidden bg-white rounded-lg shadow">
             <div className="px-4 py-4 sm:p-5">
               <h3 className="mb-3 text-base font-medium leading-6 text-gray-900">
@@ -500,14 +508,6 @@ const PatientDashboard = () => {
                     </span>
                     <p className="text-sm text-gray-900">
                       {formatDate(selectedReport.studyDate)}
-                    </p>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium text-gray-500">
-                      Fecha del Informe:
-                    </span>
-                    <p className="text-sm text-gray-900">
-                      {formatDateTime(selectedReport.createdAt)}
                     </p>
                   </div>
                 </div>
