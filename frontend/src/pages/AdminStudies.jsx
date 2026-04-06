@@ -128,9 +128,7 @@ const AdminStudies = () => {
       }
 
       const formData = new FormData();
-      if (!isUpdate) {
-        formData.append("patientId", patientId);
-      }
+      formData.append("patientId", patientId); // Siempre enviar patientId
       formData.append("type", uploadData.type);
       formData.append("date", uploadData.date);
       formData.append("notes", uploadData.notes);
@@ -142,11 +140,22 @@ const AdminStudies = () => {
         });
       }
 
-      const response = await axios.post("/api/studies", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      let response;
+      if (isUpdate && studyId) {
+        // Actualizar estudio existente
+        response = await axios.put(`/api/studies/${studyId}`, formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+      } else {
+        // Crear nuevo estudio
+        response = await axios.post("/api/studies", formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+      }
 
       // Mostrar toast de éxito
       toast.success("✅ Radiografía subida correctamente");
@@ -163,7 +172,20 @@ const AdminStudies = () => {
       fetchUnifiedData();
     } catch (err) {
       console.error("Error uploading study:", err);
-      alert("Error al subir el estudio");
+      toast.error("❌ Error al subir el estudio", {
+        autoClose: 8000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        position: "top-right",
+        style: {
+          background: "linear-gradient(to right, #ff416c, #ff4b2b)",
+          fontSize: "14px",
+          fontWeight: "bold",
+          padding: "12px",
+        },
+      });
     }
   };
 
@@ -172,7 +194,20 @@ const AdminStudies = () => {
       setSelectedStudy({ studyId });
       setShowImageViewer(true);
     } else {
-      alert("Este estudio no tiene imagen disponible");
+      toast.error("❌ Este estudio no tiene imagen disponible", {
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        position: "top-right",
+        style: {
+          background: "linear-gradient(to right, #ff416c, #ff4b2b)",
+          fontSize: "14px",
+          fontWeight: "bold",
+          padding: "12px",
+        },
+      });
     }
   };
 
@@ -401,7 +436,9 @@ const AdminStudies = () => {
                         }`}
                       >
                         <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                          <div className="font-medium text-center">{item.patientName}</div>
+                          <div className="font-medium text-center">
+                            {item.patientName}
+                          </div>
                           <div className="text-center text-gray-500">
                             DNI: {item.patientDni}
                           </div>
