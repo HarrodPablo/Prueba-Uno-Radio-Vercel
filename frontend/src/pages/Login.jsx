@@ -1,5 +1,5 @@
 import { useState } from "react";
-import Logo from "../assets/img/Logo_Completo.png";
+import Logo from "../assets/img/loogo.png";
 import { useAuth } from "../context/AuthContext";
 
 const Login = () => {

@@ -230,17 +230,14 @@ router.post(
           patientId,
           doctorId: req.user.id,
           type,
+          StudyDescription: type,
           notes,
           date: date ? new Date(date) : new Date(),
         },
       });
 
-      // console.log("✅ STUDY CREATED:", study.id);
-
       // Si hay archivos, procesarlos inmediatamente
       if (req.files && req.files.length > 0) {
-        // console.log(`📸 Processing ${req.files.length} uploaded files...`);
-
         const processedImages = [];
 
         for (const file of req.files) {
@@ -349,8 +346,6 @@ router.put(
 
       // Si hay archivos, procesarlos y actualizar la imagen
       if (req.files && req.files.length > 0) {
-        // console.log(`📸 Processing ${req.files.length} files for update...`);
-
         const processedImages = [];
 
         for (const file of req.files) {

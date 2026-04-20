@@ -1,17 +1,18 @@
 // src/index.js — agregá compression() y sirve los uploads
 import compression from "compression"; // npm install compression
 import cors from "cors";
-import dotenv from "dotenv";
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 
-dotenv.config();
-
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+import dotenv from "dotenv";
+dotenv.config({ path: path.join(__dirname, ".env") });
 
 // Importar rutas
 import authRoutes from "./routes/auth.js";
+import orthancRoutes from "./routes/orthancStudies.js";
 import patientsRoutes from "./routes/patients.js";
 import reportsRoutes from "./routes/reports.js";
 import studiesRoutes from "./routes/studies.js";
@@ -64,12 +65,24 @@ app.use("/api/patients", patientsRoutes);
 app.use("/api/reports", reportsRoutes);
 app.use("/api/users", usersRoutes);
 app.use("/api/unified", unifiedRoutes);
+app.use("/api/orthanc", orthancRoutes);
 
 // ─── Health check ─────────────────────────────────────────────
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
-app.listen(PORT, () => {
-  // console.log(`Servidor corriendo en puerto ${PORT}`);
+const server = app.listen(PORT, () => {
+  console.log(`Servidor corriendo en puerto ${PORT}`);
+});
+
+server.on("error", (err) => {
+  console.error("❌ Error iniciando servidor:", err?.message || err);
+});
+
+// Nodemon uses SIGUSR2 to restart; close the server gracefully to avoid EADDRINUSE
+process.once("SIGUSR2", () => {
+  server.close(() => {
+    process.kill(process.pid, "SIGUSR2");
+  });
 });
 
 export default app;

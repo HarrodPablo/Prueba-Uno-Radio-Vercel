@@ -23,7 +23,6 @@ const PatientDashboard = () => {
   const [pagination, setPagination] = useState(null);
 
   const fetchStudies = useCallback(async () => {
-    // console.log("fetchStudies called for role:", user?.role);
     try {
       setLoading(true);
       setError(null);
@@ -33,27 +32,19 @@ const PatientDashboard = () => {
         if (value) params.append(key, value);
       });
 
-      // Para DOCTOR, no filtrar por patientId específico, ver todos los estudios
-      if (user?.role === "DOCTOR") {
-        // Los doctores ven todos los estudios, no filtran por patientId
+      // Para DOCTOR y ADMINISTRADOR, no filtrar por patientId específico, ver todos los estudios
+      if (user?.role === "DOCTOR" || user?.role === "ADMINISTRADOR") {
+        // Los doctores y administradores ven todos los estudios, no filtran por patientId
         // params.append("onlyMyStudies", "true"); // Opcional: solo sus estudios
       } else {
         params.append("patientId", user?.id || "");
       }
 
       const response = await axios.get(`/api/unified?${params}`);
-      // console.log("Unified response:", response.data);
       // Filtrar solo estudios para el dashboard del paciente/doctor
       const studies = response.data.items.filter(
         (item) => item.type === "study",
       );
-      // console.log("Filtered studies:", studies);
-      // console.log("🔍 First study structure:", studies[0]);
-      // console.log("🔍 Study reports structure:", studies[0]?.study?.reports);
-      // console.log("🔍 All study keys:", Object.keys(studies[0] || {}));
-      // console.log("🔍 Study hasReport:", studies[0]?.hasReport);
-      // console.log("🔍 Study type field:", studies[0]?.studyType);
-      // console.log("🔍 Study date field:", studies[0]?.studyDate);
       setStudies(studies);
       setPagination(response.data.pagination);
     } catch (err) {
@@ -79,7 +70,6 @@ const PatientDashboard = () => {
   };
 
   const handleViewImage = (study) => {
-    // console.log("Study data:", JSON.stringify(study, null, 2));
     setSelectedImage(study);
     setShowImageViewer(true);
   };
@@ -90,33 +80,21 @@ const PatientDashboard = () => {
   };
 
   const handleViewReport = (study) => {
-    // console.log("🔍 handleViewReport called with study:", study);
-    // console.log("🔍 study.reports:", study.study?.reports);
-    // console.log("🔍 study.patientName:", study.patientName);
-    // console.log("🔍 study.studyType:", study.studyType);
-    // console.log("🔍 study.studyDate:", study.studyDate);
-    // console.log("🔍 All study keys:", Object.keys(study));
-
     if (
       study.study?.reports &&
       Array.isArray(study.study.reports) &&
       study.study.reports.length > 0
     ) {
-      // console.log("🔍 Setting report:", study.study.reports[0]);
       // Combinar datos del informe con datos del estudio
       const reportWithStudyData = {
         ...study.study.reports[0],
-        patientName: study.patientName || "N/A",
-        patientDni: study.patientDni || "N/A",
         studyType: study.studyType || "N/A",
         studyDate: study.studyDate || "N/A",
         doctorName: study.doctorName || "N/A",
       };
-      // console.log("🔍 Combined report data:", reportWithStudyData);
       setSelectedReport(reportWithStudyData);
       setShowReportModal(true);
     } else {
-      // console.log(" No reports available for study");
       alert("Este estudio no tiene un informe medico disponible");
     }
   };
@@ -128,9 +106,7 @@ const PatientDashboard = () => {
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
-    // console.log("🔍 formatDate input:", dateString);
     const date = new Date(dateString);
-    // console.log("🔍 formatDate parsed:", date);
 
     // Ajustar para evitar problemas de zona horaria
     const localDate = new Date(
@@ -143,20 +119,7 @@ const PatientDashboard = () => {
       year: "numeric",
       timeZone: "America/Argentina/Buenos_Aires",
     });
-    // console.log("🔍 formatDate output:", formatted);
     return formatted;
-  };
-
-  const formatDateTime = (dateString) => {
-    if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return date.toLocaleString("es-AR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
   };
 
   if (loading) {

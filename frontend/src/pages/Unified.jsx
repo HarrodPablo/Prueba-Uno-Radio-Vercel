@@ -1,9 +1,9 @@
 import axios from "axios";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "react-toastify";
 import DicomViewer from "../components/DicomViewer";
 import Layout from "../components/Layout";
 import { useAuth } from "../context/AuthContext";
-import {toast} from "react-toastify"
 
 const Unified = () => {
   const [items, setItems] = useState([]);
@@ -270,8 +270,8 @@ const Unified = () => {
   };
 
   const handleViewImage = (item) => {
-    // console.log("Unified - handleViewImage:", item);
-    if (item.imageUrl) {
+    // Handle both regular images and DICOM studies
+    if (item.imageUrl || item.orthancId || item.studyInstanceUid) {
       setSelectedStudy(item);
       setShowImageViewer(true);
     } else {
@@ -315,7 +315,6 @@ const Unified = () => {
       </Layout>
     );
   }
-
   return (
     <Layout>
       <div className="px-4 py-6 sm:px-6 lg:px-8">
@@ -496,7 +495,7 @@ const Unified = () => {
                         <td className="px-6 py-4 text-sm whitespace-nowrap">
                           <div>
                             <div className="font-medium text-gray-900">
-                              {item.patientName}
+                              {item.patientName }
                             </div>
                             <div className="text-xs text-gray-500">
                               DNI: {item.patientDni}
@@ -519,8 +518,10 @@ const Unified = () => {
                           })()}
                         </td>
                         <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
-                          {item.studyType}
+                          {item.StudyDescription || item.studyType}
+                          
                         </td>
+                        
                         <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
                           {item.doctorName}
                         </td>

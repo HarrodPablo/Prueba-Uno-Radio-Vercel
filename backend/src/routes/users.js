@@ -46,8 +46,6 @@ router.get("/", authMiddleware, roleMiddleware(["ADMIN"]), async (req, res) => {
       prisma.user.count({ where }),
     ]);
 
-    // console.log("🔍 Query results:", { usersCount: users.length, total });
-
     res.json({
       users,
       pagination: {
@@ -289,9 +287,6 @@ router.delete(
 
       // Si tiene datos asociados, mostrar advertencia pero permitir eliminación
       if (studyCount > 0 || reportCount > 0) {
-        // console.log(`⚠️ Eliminando usuario con datos asociados: ${user.name}`);
-        // console.log(`📊 Estudios: ${studyCount}, Informes: ${reportCount}`);
-
         // Para desarrollo, permitimos la eliminación con advertencia
         // En producción, podrías querer archivar los datos en lugar de eliminar
         try {
