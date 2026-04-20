@@ -2,6 +2,13 @@
 export const generatePDF = (report, study) => {
   // console.log("🔍 generatePDF called with:", { report, study });
 
+  // Función para obtener URLs absolutas de imágenes
+  const getImageUrl = (imagePath) => {
+    // Usar URL absoluta del servidor de desarrollo
+    const baseUrl = window.location.origin;
+    return `${baseUrl}${imagePath}`;
+  };
+
   const formatStudyDate = (dateString) => {
     if (!dateString) return "N/A";
     const date = new Date(dateString);
@@ -149,7 +156,7 @@ export const generatePDF = (report, study) => {
         <header class="flex justify-between items-start mb-8">
           <div class="flex items-center gap-4">
             <div class="w-16 h-16 rounded-full overflow-hidden bg-surface-container-low flex items-center justify-center">
-              <img src="/src/assets/img/loogo.png" alt="Logo Diagnóstico López" class="w-12 h-12 object-contain" />
+              <img src="${getImageUrl("/src/assets/img/loogo.png")}" alt="Logo Diagnóstico López" class="w-12 h-12 object-contain" />
             </div>
             <div class="flex flex-col">
               <span class="text-xs uppercase tracking-widest text-outline">Centro de Diagnóstico</span>
@@ -177,9 +184,7 @@ export const generatePDF = (report, study) => {
               <span class="col-span-2 text-on-surface font-medium">${study.patientName || "N/A"}</span>
               <span class="text-primary font-bold">ID / DNI:</span>
               <span class="col-span-2 text-on-surface-variant">${study.patientDni || "N/A"}</span>
-              <span class="text-primary font-bold">Teléfono:</span>
-              <span class="col-span-2 text-on-surface-variant">${study.patient?.phone || "N/A"}</span>
-            </div>
+             </div>
           </div>
           
           <!-- Study Data -->
@@ -226,11 +231,11 @@ export const generatePDF = (report, study) => {
         </div>
         
         <!-- Signature Block -->
-        <section class="mt-12 self-end w-64 text-right">
-          <div class="mb-2">
-            <img src="/src/assets/img/lopezz.png" alt="Firma Médico" class="w-40 h-20 object-contain ml-auto" />
+        <section class="mt-12 self-end w-64 text-center">
+          <div class="mb-4">
+            <img src="${getImageUrl("/src/assets/img/lopezz.png")}" alt="Firma Médico" class="w-40 h-20 object-contain mx-auto" />
           </div>
-          <div class="space-y-0.5">
+          <div class="space-y-1">
             <p class="text-sm font-bold text-primary">Dr. ${study.doctorName || study.doctor?.name || "Médico Radiólogo"}</p>
             <p class="text-[10px] text-on-surface-variant uppercase tracking-wider">Especialista en Diagnóstico por Imágenes</p>
           </div>
