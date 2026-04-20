@@ -4,9 +4,11 @@ export const generatePDF = (report, study) => {
 
   // Función para obtener URLs absolutas de imágenes
   const getImageUrl = (imagePath) => {
-    // Usar URL absoluta del servidor de desarrollo
+    // Usar URL absoluta del servidor de desarrollo con carpeta public
     const baseUrl = window.location.origin;
-    return `${baseUrl}${imagePath}`;
+    // Cambiar /src/assets/img/ a /public/assets/img/ para carpeta public
+
+    return `${baseUrl}/${imagePath}`;
   };
 
   const formatStudyDate = (dateString) => {
@@ -156,7 +158,7 @@ export const generatePDF = (report, study) => {
         <header class="flex justify-between items-start mb-8">
           <div class="flex items-center gap-4">
             <div class="w-16 h-16 rounded-full overflow-hidden bg-surface-container-low flex items-center justify-center">
-              <img src="${getImageUrl("/src/assets/img/loogo.png")}" alt="Logo Diagnóstico López" class="w-12 h-12 object-contain" />
+              <img src="${getImageUrl("loogo.png")}" alt="Logo Diagnóstico López" class="w-12 h-12 object-contain" />
             </div>
             <div class="flex flex-col">
               <span class="text-xs uppercase tracking-widest text-outline">Centro de Diagnóstico</span>
@@ -233,7 +235,7 @@ export const generatePDF = (report, study) => {
         <!-- Signature Block -->
         <section class="mt-12 self-end w-64 text-center">
           <div class="mb-4">
-            <img src="${getImageUrl("/src/assets/img/lopezz.png")}" alt="Firma Médico" class="w-40 h-20 object-contain mx-auto" />
+            <img src="${getImageUrl("lopezz.png")}" alt="Firma Médico" class="w-40 h-20 object-contain mx-auto" />
           </div>
           <div class="space-y-1">
             <p class="text-sm font-bold text-primary">Dr. ${study.doctorName || study.doctor?.name || "Médico Radiólogo"}</p>
