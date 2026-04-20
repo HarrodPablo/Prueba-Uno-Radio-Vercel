@@ -3,8 +3,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Layout from "../components/Layout";
+import { useAuth } from "../context/AuthContext";
+import { backendOrigin, withOrthancProxyAuth } from "../utils/orthancUrl";
 
 const Users = () => {
+  const { token } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -25,6 +28,14 @@ const Users = () => {
     role: "",
   });
   const [pagination, setPagination] = useState(null);
+
+  // Estados para Orthanc
+  const [orthancStudies, setOrthancStudies] = useState([]);
+  const [orthancLoading, setOrthancLoading] = useState(false);
+  const [orthancError, setOrthancError] = useState(null);
+  const [showOrthancModal, setShowOrthancModal] = useState(false);
+  const [orthancSearchTerm, setOrthancSearchTerm] = useState("");
+  const [expandedStudies, setExpandedStudies] = useState(new Set());
 
   // Ref para el input de búsqueda
   const searchInputRef = useRef(null);
@@ -102,39 +113,178 @@ const Users = () => {
         },
       );
 
-      // Mayor retraso antes de cerrar modal y recargar
-      setTimeout(() => {
-        setShowCreateModal(false);
-        fetchUsers();
-      }, 2000); // 2 segundos para que el toast sea visible
-    } catch (err) {
-      console.error("❌ Error creating user:", err);
+      // Cerrar modal
+      setShowCreateModal(false);
+      setEditingUser(null);
 
-      // Manejar diferentes tipos de errores con toast
-      if (err.response?.status === 400) {
-        const errorMsg = err.response.data.error;
+      // Refrescar lista de usuarios
+      fetchUsers();
+    } catch (error) {
+      console.error("Error creating user:", error);
+      toast.error("Error al crear usuario", {
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        position: "top-right",
+        style: {
+          background: "linear-gradient(to right, #ff416c, #ff4b2b)",
+          fontSize: "14px",
+          fontWeight: "bold",
+          padding: "12px",
+        },
+      });
+    }
+  };
 
-        if (errorMsg.includes("DNI") && errorMsg.includes("already exists")) {
-          toast.error("❌ Ya existe un usuario con ese DNI");
-        } else if (
-          errorMsg.includes("email") &&
-          errorMsg.includes("already exists")
-        ) {
-          toast.error("❌ Ya existe un usuario con ese email");
-        } else if (errorMsg.includes("required")) {
-          toast.error("❌ Datos inválidos. Verifica todos los campos.");
-        } else {
-          toast.error(`❌ ${errorMsg}`);
-        }
-      } else if (err.response?.status === 401) {
-        toast.error("❌ No autorizado. Inicia sesión nuevamente.");
-      } else if (err.response?.status === 403) {
-        toast.error("❌ No tienes permisos para crear usuarios.");
-      } else if (err.code === "NETWORK_ERROR") {
-        toast.error("❌ Error de conexión. Verifica tu internet.");
-      } else {
-        toast.error("❌ Error al crear usuario. Intenta nuevamente.");
+  // Función para formatear fecha DICOM (YYYYMMDD)
+  const formatDicomDate = (dateString) => {
+    if (!dateString || dateString === "Sin fecha") return "N/A";
+
+    // Formato DICOM: YYYYMMDD
+    if (dateString.length === 8) {
+      const year = dateString.substring(0, 4);
+      const month = dateString.substring(4, 6);
+      const day = dateString.substring(6, 8);
+      const date = new Date(`${year}-${month}-${day}`);
+      return date.toLocaleDateString("es-AR", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+      });
+    }
+
+    // Fallback para otros formatos
+    return dateString;
+  };
+
+  // Función para formatear hora DICOM (HHMMSS)
+  const formatDicomTime = (timeString) => {
+    if (!timeString || timeString === "Sin hora") return "N/A";
+
+    // Formato DICOM: HHMMSS o HHMM
+    if (timeString.length >= 4) {
+      const hours = timeString.substring(0, 2);
+      const minutes = timeString.substring(2, 4);
+      const seconds =
+        timeString.length >= 6 ? timeString.substring(4, 6) : "00";
+
+      return `${hours}:${minutes}${seconds !== "00" ? `:${seconds}` : ""}`;
+    }
+
+    return timeString;
+  };
+
+  // Función para formatear nombre DICOM (apellido^nombre)
+  const formatDicomName = (nameString) => {
+    if (!nameString || nameString === "Sin nombre") return "N/A";
+
+    // Formato DICOM: apellido^nombre o apellido^nombre^segundoNombre^titulo
+    const parts = nameString.split("^");
+
+    if (parts.length >= 2) {
+      const lastName = parts[0] || "";
+      const firstName = parts[1] || "";
+
+      // Limpiar espacios y formatear
+      const cleanLastName = lastName.trim();
+      const cleanFirstName = firstName.trim();
+
+      if (cleanLastName && cleanFirstName) {
+        return `${cleanFirstName} ${cleanLastName}`;
+      } else if (cleanLastName) {
+        return cleanLastName;
+      } else if (cleanFirstName) {
+        return cleanFirstName;
       }
+    }
+
+    // Fallback: si no tiene el formato esperado, devolver como está
+    return nameString;
+  };
+
+  // Función para filtrar estudios de Orthanc
+  const filteredOrthancStudies = orthancStudies.filter((study) => {
+    const searchLower = orthancSearchTerm.toLowerCase();
+    return (
+      (study.PatientName || study.patientName)
+        ?.toLowerCase()
+        .includes(searchLower) ||
+      study.orthancId?.toLowerCase().includes(searchLower) ||
+      (study.StudyDate || study.studyDate)
+        ?.toLowerCase()
+        .includes(searchLower) ||
+      (study.StudyDescription || study.type)
+        ?.toLowerCase()
+        .includes(searchLower)
+    );
+  });
+
+  // Función para toggle del menú hamburguesa
+  const toggleStudyExpansion = (studyId) => {
+    const newExpanded = new Set(expandedStudies);
+    if (newExpanded.has(studyId)) {
+      newExpanded.delete(studyId);
+    } else {
+      newExpanded.add(studyId);
+    }
+    setExpandedStudies(newExpanded);
+  };
+
+  const handleImportFromOrthanc = async (orthancStudy) => {
+    try {
+      // Crear paciente con datos del DICOM
+      const patientResponse = await axios.post("/api/users", {
+        name: orthancStudy.patientName || "Paciente Orthanc",
+        dni: orthancStudy.patientId || "AUTO-" + Date.now(),
+        phone: "",
+        email: "",
+        role: "PATIENT",
+        password: "temp123", // Contraseña temporal
+      });
+
+      const newPatientId = patientResponse.data.id;
+
+      // Asignar estudio al paciente creado
+      await axios.post("/api/orthanc/assign", {
+        patientId: newPatientId,
+        orthancId: orthancStudy.orthancId,
+      });
+
+      toast.success("Paciente creado y estudio asignado correctamente", {
+        autoClose: 3000,
+        hideProgressBar: false,
+        closeOnClick: false,
+        pauseOnHover: true,
+        draggable: true,
+        position: "top-right",
+        style: {
+          background: "linear-gradient(to right, #00b09b, #96c93d)",
+          fontSize: "16px",
+          fontWeight: "bold",
+          padding: "16px",
+        },
+      });
+
+      setShowOrthancModal(false);
+      fetchUsers(); // Refrescar lista de usuarios
+    } catch (err) {
+      console.error("Error importing from Orthanc:", err);
+      toast.error("Error al importar paciente desde Orthanc", {
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+        position: "top-right",
+        style: {
+          background: "linear-gradient(to right, #ff416c, #ff4b2b)",
+          fontSize: "14px",
+          fontWeight: "bold",
+          padding: "12px",
+        },
+      });
     }
   };
 
@@ -266,12 +416,14 @@ const Users = () => {
               <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
                 Gestión de Usuarios
               </h1>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="w-full px-4 py-2 text-white transition-colors rounded-md sm:w-auto bg-quinty hover:bg-cuarty"
-              >
-                Crear Usuario
-              </button>
+              <div className="flex flex-col gap-2 sm:flex-row sm:gap-2 sm:w-auto">
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="w-full px-4 py-2 text-white transition-colors rounded-md sm:w-auto bg-quinty hover:bg-cuarty"
+                >
+                  Crear Usuario
+                </button>
+              </div>
             </div>
 
             <div className="p-4 mb-6 rounded-lg shadow bg-quinty">
@@ -637,6 +789,278 @@ const Users = () => {
           </div>
         )}
       </div>
+
+      {/* Modal de Importar desde Orthanc */}
+      {showOrthancModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="w-full max-w-4xl max-h-[90vh] p-6 bg-white rounded-lg overflow-hidden">
+            <div className="flex flex-col space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">
+                  Importar Pacientes desde Orthanc PACS
+                </h3>
+                <button
+                  onClick={() => setShowOrthancModal(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <svg
+                    className="w-6 h-6"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Buscador */}
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                  <svg
+                    className="w-5 h-5 text-gray-400"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                </div>
+                <input
+                  type="text"
+                  placeholder="Buscar por nombre, ID, fecha o tipo..."
+                  value={orthancSearchTerm}
+                  onChange={(e) => setOrthancSearchTerm(e.target.value)}
+                  className="w-full py-2 pl-10 pr-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                {orthancSearchTerm && (
+                  <button
+                    onClick={() => setOrthancSearchTerm("")}
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {orthancLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="w-8 h-8 border-b-2 border-blue-600 rounded-full animate-spin"></div>
+                <p className="ml-3 text-gray-600">
+                  Cargando estudios desde Orthanc...
+                </p>
+              </div>
+            ) : orthancError ? (
+              <div className="py-12 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 text-red-500">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
+                    />
+                  </svg>
+                </div>
+                <p className="font-medium text-red-600">{orthancError}</p>
+                <p className="mt-2 text-sm text-gray-500">
+                  Verifique que Orthanc esté disponible en la configuración
+                </p>
+              </div>
+            ) : orthancStudies.length === 0 ? (
+              <div className="py-12 text-center">
+                <div className="w-16 h-16 mx-auto mb-4 text-gray-400">
+                  <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.707.297V19a2 2 0 01-2 2z"
+                    />
+                  </svg>
+                </div>
+                <p className="text-gray-500">
+                  No se encontraron estudios en Orthanc
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-y-auto max-h-[60vh]">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {filteredOrthancStudies.map((study) => (
+                    <div
+                      key={study.orthancId}
+                      className="overflow-hidden transition-shadow border border-gray-200 rounded-lg hover:shadow-md"
+                    >
+                      {study.previewUrl && (
+                        <div className="bg-gray-100 aspect-video">
+                          <img
+                            src={withOrthancProxyAuth(
+                              `${backendOrigin()}${study.previewUrl}`,
+                              token,
+                            )}
+                            alt={`Preview de ${study.patientName}`}
+                            className="object-cover w-full h-full"
+                            onError={(e) => {
+                              e.target.style.display = "none";
+                              e.target.nextSibling.style.display = "flex";
+                            }}
+                          />
+                          <div
+                            className="items-center justify-center w-full h-full text-gray-400"
+                            style={{ display: "none" }}
+                          >
+                            <svg
+                              className="w-12 h-12"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                              />
+                            </svg>
+                          </div>
+                        </div>
+                      )}
+                      <div className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h4
+                              className="font-medium text-gray-900 truncate"
+                              title={formatDicomName(
+                                study.PatientName || study.patientName,
+                              )}
+                            >
+                              {formatDicomName(
+                                study.PatientName || study.patientName,
+                              )}
+                            </h4>
+                            <p className="mt-1 text-sm text-gray-500">
+                              DNI:{" "}
+                              <span className="font-mono text-xs">
+                                {study.PatientID || study.patientDni || "N/A"}
+                              </span>
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              Fecha:{" "}
+                              {formatDicomDate(
+                                study.StudyDate || study.studyDate,
+                              )}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              Hora:{" "}
+                              {formatDicomTime(
+                                study.StudyTime || study.studyTime,
+                              )}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              Tipo:{" "}
+                              {study.StudyDescription || study.type || "N/A"}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              Imagenes:{" "}
+                              <span className="font-mono text-xs">
+                                {study.Series || "N/A"}
+                              </span>
+                            </p>
+                          </div>
+
+                          {/* Menú hamburguesa para múltiples radiografías */}
+                          {(study.Series > 1 || study.instancesCount > 1) && (
+                            <button
+                              onClick={() =>
+                                toggleStudyExpansion(study.orthancId)
+                              }
+                              className="p-2 text-gray-400 transition-colors rounded-md hover:text-gray-600 hover:bg-gray-100"
+                              title={`Ver ${study.Series} series y ${study.instancesCount} imágenes`}
+                            >
+                              <svg
+                                className={`w-5 h-5 transition-transform ${
+                                  expandedStudies.has(study.orthancId)
+                                    ? "rotate-90"
+                                    : ""
+                                }`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M4 6h16M4 12h16M4 18h16"
+                                />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Sección expandible para múltiples radiografías */}
+                        {expandedStudies.has(study.orthancId) && (
+                          <div className="p-3 mt-3 border border-gray-200 rounded-md bg-gray-50">
+                            <p className="mb-2 text-sm font-medium text-gray-700">
+                              Detalles del Estudio
+                            </p>
+                            <div className="space-y-1 text-xs text-gray-600">
+                              <p>Series: {study.Series}</p>
+                              <p>Imágenes: {study.instancesCount}</p>
+                              <p>
+                                Study Instance UID: {study.studyInstanceUid}
+                              </p>
+                            </div>
+                            {study.seriesCount > 1 && (
+                              <div className="pt-2 mt-2 border-t border-gray-200">
+                                <p className="mb-1 text-xs text-gray-500">
+                                  Este estudio contiene múltiples series. Todas
+                                  serán importadas.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <button
+                          onClick={() => handleImportFromOrthanc(study)}
+                          className="w-full px-3 py-2 mt-3 text-sm text-white transition-colors bg-blue-600 rounded-md hover:bg-blue-700"
+                        >
+                          Importar Paciente
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       <ToastContainer
         position="top-right"
         autoClose={8000}
@@ -653,5 +1077,4 @@ const Users = () => {
     </Layout>
   );
 };
-
 export default Users;

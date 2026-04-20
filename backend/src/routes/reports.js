@@ -101,11 +101,6 @@ router.post(
   roleMiddleware(["ADMIN", "DOCTOR"]),
   async (req, res) => {
     try {
-      // console.log("🚀 POST /api/reports - Request received");
-      // console.log("🚀 Full request object:", req);
-      // console.log("🚀 Request user:", req.user);
-      // console.log("🚀 Request headers:", req.headers);
-
       const { studyId, content } = req.body;
 
       if (!studyId || !content) {
@@ -132,18 +127,8 @@ router.post(
 
       // Admins can create reports for any study, doctors only for their own
       // Simplified logic: allow any doctor to create reports for now
-      // console.log("🔍 User role:", req.user.role);
-      // console.log("🔍 User ID:", req.user.id);
-      // console.log("🔍 Study doctorId:", study.doctorId);
-      // console.log("🔍 Study reports:", study.reports);
 
       // Temporarily allow all doctors to create reports
-      if (req.user.role !== "ADMIN" && req.user.role !== "DOCTOR") {
-        // console.log("❌ Invalid role");
-        return res.status(403).json({ error: "Access denied" });
-      }
-
-      // console.log("✅ Access granted - creating report");
 
       // Create the report
       const newReport = await prisma.report.create({
@@ -253,12 +238,6 @@ router.post(
   async (req, res) => {
     try {
       const { id } = req.params;
-      // console.log("🔍 Send email notification - Report ID:", id);
-      // console.log("🔍 Send email notification - User:", {
-      //   id: req.user.id,
-      //   role: req.user.role,
-      //   name: req.user.name,
-      // });
 
       const report = await prisma.report.findUnique({
         where: { id },
@@ -285,28 +264,15 @@ router.post(
         },
       });
 
-      // console.log("🔍 Send email notification - Report found:", !!report);
-      // console.log(
-      //   "🔍 Send email notification - Report doctorId:",
-      //     report?.doctorId,
-      // );
-
       if (!report) {
         return res.status(404).json({ error: "Report not found" });
       }
 
       if (req.user.role === "DOCTOR" && report.doctorId !== req.user.id) {
-        // console.log("🔍 Access denied - DOCTOR validation:");
-        // console.log("🔍 req.user.id:", req.user.id);
-        // console.log("🔍 report.doctorId:", report.doctorId);
         return res.status(403).json({ error: "Access denied" });
       }
 
       // Send email notification
-      // console.log(
-      //   "🔍 Send email notification - Sending email to:",
-      //     report.study.patient.email,
-      // );
       await sendReportNotificationEmail(
         report.study.patient.email,
         report.study.patient.name,

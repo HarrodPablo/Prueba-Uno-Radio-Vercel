@@ -9,6 +9,7 @@ import AdminStudies from "./pages/AdminStudies";
 import Calendar from "./pages/Calendar";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
+import OrthancImport from "./pages/OrthancImport";
 import PatientDashboard from "./pages/PatientDashboard";
 import Reports from "./pages/Reports";
 import Unified from "./pages/Unified";
@@ -98,6 +99,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Users />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/orthanc-import"
+        element={
+          <ProtectedRoute>
+            <OrthancImport />
           </ProtectedRoute>
         }
       />

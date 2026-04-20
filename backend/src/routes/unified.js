@@ -47,7 +47,17 @@ router.get(
         },
         include: {
           studiesAsPatient: {
-            include: {
+            select: {
+              id: true,
+              patientId: true,
+              doctorId: true,
+              orthancId: true,
+              type: true,
+              StudyDescription: true,
+              notes: true,
+              date: true,
+              imageUrl: true,
+              studyInstanceUid: true,
               doctor: {
                 select: { id: true, name: true, dni: true },
               },
@@ -111,12 +121,16 @@ router.get(
               patientDni: patient.dni,
               studyDate: study.date,
               studyType: study.type,
+              StudyDescription:
+                study.StudyDescription || study.type || "Sin descripción",
               notes: study.notes,
               doctorName: study.doctor.name,
               hasReport: study.reports.length > 0,
               studyId: study.id,
               reportId: study.reports.length > 0 ? study.reports[0].id : null,
               imageUrl: study.imageUrl,
+              orthancId: study.orthancId,
+              studyInstanceUid: study.studyInstanceUid,
               doctorId: study.doctorId,
               patient: {
                 id: patient.id,
@@ -128,9 +142,13 @@ router.get(
               study: {
                 id: study.id,
                 type: study.type,
+                StudyDescription:
+                  study.StudyDescription || study.type || "Sin descripción",
                 date: study.date,
                 notes: study.notes,
                 imageUrl: study.imageUrl,
+                orthancId: study.orthancId,
+                studyInstanceUid: study.studyInstanceUid,
                 doctor: study.doctor,
                 reports: study.reports,
               },

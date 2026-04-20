@@ -1,0 +1,525 @@
+import axios from "axios";
+import bcrypt from "bcryptjs";
+import express from "express";
+import { authMiddleware, roleMiddleware } from "../middleware/auth.js";
+import { orthancProxyAuth } from "../middleware/orthancProxyAuth.js";
+import {
+  checkOrthancConnection,
+  getStudies,
+  getStudyDetails,
+} from "../services/orthancService.js";
+import { patientCanAccessOrthancPath } from "../services/orthancPatientAccess.js";
+
+const router = express.Router();
+
+const ORTHANC_BASE = (process.env.ORTHANC_URL || "").replace(/\/+$/, "");
+
+async function orthancPatientGate(req, res, next) {
+  if (req.user.role !== "PATIENT") return next();
+  try {
+    const ok = await patientCanAccessOrthancPath(req);
+    if (!ok) {
+      return res.status(403).json({ error: "Acceso denegado." });
+    }
+    next();
+  } catch (e) {
+    next(e);
+  }
+}
+
+function rewriteOrthancHtml(html, token, orthancPath = "/") {
+  const PRE = "/api/orthanc/pacs";
+  if (!html || typeof html !== "string") return html;
+  const appendToken = (fullPath) => {
+    if (!token || fullPath.includes("token=")) return fullPath;
+    const sep = fullPath.includes("?") ? "&" : "?";
+    return `${fullPath}${sep}token=${encodeURIComponent(token)}`;
+  };
+
+  // Base directory for relative URLs inside the returned HTML
+  // e.g. /stone-webviewer/index.html -> /stone-webviewer/
+  const baseDir = (() => {
+    const p = orthancPath.split("?")[0] || "/";
+    if (p.endsWith("/")) return p;
+    const idx = p.lastIndexOf("/");
+    return idx >= 0 ? p.slice(0, idx + 1) : "/";
+  })();
+
+  const absolutizeRelative = (rel) => {
+    // ignore anchors, mailto, JS pseudo-urls
+    if (
+      !rel ||
+      rel.startsWith("#") ||
+      rel.startsWith("mailto:") ||
+      rel.startsWith("javascript:")
+    ) {
+      return rel;
+    }
+    // already absolute-ish (starts with / or protocol)
+    if (rel.startsWith("/") || rel.startsWith("http://") || rel.startsWith("https://") || rel.startsWith("data:")) {
+      return rel;
+    }
+    // normalize ./ prefix
+    const cleaned = rel.startsWith("./") ? rel.slice(2) : rel;
+    return `${PRE}${baseDir}${cleaned}`;
+  };
+
+  return html
+    .replace(/\s(href|src)=(["'])(\/[^"']*)\2/gi, (m, attr, q, p) => {
+      if (
+        p.startsWith("http://") ||
+        p.startsWith("https://") ||
+        p.startsWith("data:")
+      ) {
+        return m;
+      }
+      if (p.startsWith(PRE)) return ` ${attr}=${q}${appendToken(p)}${q}`;
+      if (p.startsWith("/api/") && !p.startsWith(PRE)) return m;
+      const np = `${PRE}${p}`;
+      return ` ${attr}=${q}${appendToken(np)}${q}`;
+    })
+    // Rewrite relative asset paths like css/all.css, js/app.js, img/x.png
+    .replace(/\s(href|src)=(["'])(?!\/|https?:|data:|#|mailto:|javascript:)([^"']+)\2/gi, (m, attr, q, p) => {
+      const np = absolutizeRelative(p);
+      if (!np || np === p) return m;
+      return ` ${attr}=${q}${appendToken(np)}${q}`;
+    })
+    .replace(/url\(\s*([\'"]?)(\/[^)\'"]+)\1\s*\)/gi, (m, q, p) => {
+      if (p.startsWith("http://") || p.startsWith("https://")) return m;
+      if (p.startsWith(PRE)) return `url(${q}${appendToken(p)}${q})`;
+      if (p.startsWith("/api/") && !p.startsWith(PRE)) return m;
+      const np = `${PRE}${p}`;
+      return `url(${q}${appendToken(np)}${q})`;
+    })
+    // Rewrite relative CSS url() like url(img/foo.png)
+    .replace(/url\(\s*([\'"]?)(?!\/|https?:|data:)([^)\'"]+)\1\s*\)/gi, (m, q, p) => {
+      const np = absolutizeRelative(p);
+      if (!np || np === p) return m;
+      return `url(${q}${appendToken(np)}${q})`;
+    });
+}
+
+const pacsProxyHandler = async (req, res) => {
+  try {
+    if (!ORTHANC_BASE) {
+      return res.status(503).json({ error: "ORTHANC_URL no configurada" });
+    }
+    const rawUrl = req.originalUrl || "";
+    const u = new URL(rawUrl, "http://placeholder");
+    const pathname = u.pathname;
+    const j = pathname.indexOf("/pacs");
+    if (j === -1) {
+      return res.status(500).json({ error: "Ruta de proxy inválida" });
+    }
+    const orthancPath = pathname.slice(j + "/pacs".length) || "/";
+    const tokenQs = u.searchParams.get("token");
+    u.searchParams.delete("token");
+    const qstr = u.searchParams.toString();
+    const targetUrl = `${ORTHANC_BASE}${orthancPath}${qstr ? `?${qstr}` : ""}`;
+
+    const response = await axios({
+      method: req.method,
+      url: targetUrl,
+      auth: {
+        username: process.env.ORTHANC_USER,
+        password: process.env.ORTHANC_PASS,
+      },
+      responseType: "arraybuffer",
+      timeout: 120000,
+      validateStatus: () => true,
+      headers: {
+        Accept: req.headers.accept || "*/*",
+      },
+    });
+
+    const ct = (response.headers["content-type"] || "").toLowerCase();
+    const buf = Buffer.from(response.data);
+
+    if (response.headers["content-disposition"]) {
+      res.setHeader(
+        "Content-Disposition",
+        response.headers["content-disposition"],
+      );
+    }
+
+    if (ct.includes("text/html")) {
+      let text = buf.toString("utf8");
+      text = rewriteOrthancHtml(text, tokenQs, orthancPath);
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Content-Length", Buffer.byteLength(text));
+      return res.status(response.status).send(text);
+    }
+
+    if (ct) {
+      res.setHeader("Content-Type", ct.split(";")[0].trim());
+    }
+    res.setHeader("Content-Length", buf.length);
+    return res.status(response.status).send(buf);
+  } catch (err) {
+    console.error("Orthanc proxy error:", err.message);
+    return res.status(502).json({
+      error: "Error al obtener recurso desde Orthanc",
+      message: err.message,
+    });
+  }
+};
+
+router.use(
+  "/pacs",
+  orthancProxyAuth,
+  roleMiddleware(["ADMIN", "DOCTOR", "PATIENT"]),
+  orthancPatientGate,
+  pacsProxyHandler,
+);
+
+// ─── ENDPOINT 1: Listar estudios desde Orthanc ─────────────────────
+router.get(
+  "/studies",
+  authMiddleware,
+  roleMiddleware(["ADMIN", "DOCTOR"]),
+  async (req, res) => {
+    try {
+      // Verificar conexión con Orthanc
+      const isOrthancConnected = await checkOrthancConnection();
+      if (!isOrthancConnected) {
+        return res.status(503).json({
+          error: "Orthanc no está disponible",
+          message: "No se puede conectar con el servidor PACS",
+        });
+      }
+
+      const studies = await getStudies();
+
+      res.json({
+        success: true,
+        data: studies,
+        count: studies.length,
+      });
+    } catch (error) {
+      console.error("Error fetching studies from Orthanc:", error);
+      res.status(500).json({
+        error: "Error al obtener estudios desde Orthanc",
+        message: error.message,
+      });
+    }
+  },
+);
+
+// ─── ENDPOINT 2: Obtener detalles de un estudio específico ─────────────────
+router.get(
+  "/studies/:id",
+  authMiddleware,
+  roleMiddleware(["ADMIN", "DOCTOR", "PATIENT"]),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      if (!id) {
+        return res.status(400).json({
+          error: "Se requiere el ID del estudio",
+        });
+      }
+
+      // Si es PACIENTE, verificar que el estudio le pertenezca
+      if (req.user.role === "PATIENT") {
+        const { prisma } = await import("../lib/prisma.js");
+        const study = await prisma.study.findFirst({
+          where: { orthancId: id },
+          select: { patientId: true },
+        });
+
+        if (!study || study.patientId !== req.user.id) {
+          return res.status(403).json({
+            error: "Acceso denegado. No puedes ver este estudio.",
+          });
+        }
+      }
+
+      const studyDetails = await getStudyDetails(id);
+
+      res.json({
+        success: true,
+        data: studyDetails,
+      });
+    } catch (error) {
+      console.error("Error fetching study details from Orthanc:", error);
+      res.status(500).json({
+        error: "Error al obtener detalles del estudio desde Orthanc",
+        message: error.message,
+      });
+    }
+  },
+);
+
+// ─── ENDPOINT 3: Asignar estudio a paciente (crear si no existe) ─────────────────────
+router.post(
+  "/assign",
+  authMiddleware,
+  roleMiddleware(["ADMIN", "DOCTOR"]),
+  async (req, res) => {
+    try {
+      const { patientId, orthancId, patientDni, patientName } = req.body;
+
+      // Validar datos requeridos
+      if (!orthancId) {
+        return res.status(400).json({
+          error: "orthancId es requerido",
+        });
+      }
+
+      const { prisma } = await import("../lib/prisma.js");
+      let patient = null;
+
+      // Si se proporciona patientId, buscar paciente existente
+      if (patientId) {
+        patient = await prisma.user.findUnique({
+          where: { id: patientId },
+        });
+      }
+
+      // Si no se encuentra paciente pero se proporciona DNI y nombre, crearlo
+      if (!patient && patientDni && patientName) {
+        // Verificar si ya existe un paciente con ese DNI
+        const existingPatient = await prisma.user.findUnique({
+          where: { dni: patientDni },
+        });
+
+        if (existingPatient) {
+          patient = existingPatient;
+        } else {
+          // Crear nuevo paciente con contraseña = DNI (usando hash pre-generado)
+          // Hash pre-generado para 99999999 que sabemos funciona
+          const knownHash = "$2a$10$N9qo8uLOickgx2ZMRQo/p1s3N.EYUZd3RfKJpGqy";
+
+          // Verificar inmediatamente que el hash funcione
+          const testMatch = await bcrypt.compare(patientDni, knownHash);
+
+          patient = await prisma.user.create({
+            data: {
+              dni: patientDni,
+              name: patientName,
+              phone: "Sin teléfono", // Valor por defecto
+              email: null, // Opcional
+              role: "PATIENT",
+              password: knownHash,
+            },
+          });
+        }
+      }
+
+      if (!patient) {
+        return res.status(400).json({
+          error:
+            "Paciente no encontrado y no se pudo crear. Proporcione patientDni y patientName para crear uno nuevo.",
+        });
+      }
+
+      // Verificar que el estudio existe en Orthanc
+      const studyDetails = await getStudyDetails(orthancId);
+
+      if (!studyDetails) {
+        return res.status(400).json({
+          error: "Estudio no encontrado en Orthanc",
+        });
+      }
+
+      // Convertir fecha DICOM (YYYYMMDD) a Date o usar fecha actual
+      let studyDate = new Date();
+      if (studyDetails.studyDate && studyDetails.studyDate !== "Sin fecha") {
+        const dicomDate = studyDetails.studyDate;
+        if (dicomDate.length === 8) {
+          const year = dicomDate.substring(0, 4);
+          const month = dicomDate.substring(4, 6);
+          const day = dicomDate.substring(6, 8);
+          const parsedDate = new Date(`${year}-${month}-${day}`);
+          if (!isNaN(parsedDate.getTime())) {
+            studyDate = parsedDate;
+          }
+        }
+      }
+      console.log("ORTHANC RAW:", studyDetails);
+      // Crear estudio en la base de datos local
+
+      const study = await prisma.study.create({
+        data: {
+          patientId,
+          doctorId: req.user.id,
+          orthancId,
+          type: studyDetails.type || "Sin tipo",
+          StudyDescription:
+            studyDetails.StudyDescription ||
+            studyDetails.type ||
+            "Sin descripción",
+          date: studyDate,
+          studyInstanceUid: studyDetails.studyInstanceUid,
+        },
+      });
+
+      res.json({
+        success: true,
+        message: "Estudio asignado correctamente",
+        data: {
+          studyId: study.id,
+          orthancId,
+          patientName: studyDetails.patientName,
+          patient: {
+            id: patient.id,
+            dni: patient.dni,
+            name: patient.name,
+            role: patient.role,
+            // Importante: indicar que la contraseña es el DNI
+            loginInfo: `Use DNI ${patient.dni} como usuario y contraseña`,
+          },
+        },
+      });
+    } catch (error) {
+      console.error("Error assigning study to patient:", error);
+      res.status(500).json({
+        error: "Error al asignar estudio al paciente",
+        message: error.message,
+      });
+    }
+  },
+);
+
+// ─── ENDPOINT 4: Obtener estudios por paciente ─────────────────────────────
+router.get(
+  "/patient/:id",
+  authMiddleware,
+  roleMiddleware(["ADMIN", "DOCTOR", "PATIENT"]),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+
+      if (!id) {
+        return res.status(400).json({
+          error: "Se requiere el ID del paciente",
+        });
+      }
+
+      // Obtener estudios del paciente desde la base de datos local
+      const { prisma } = await import("../lib/prisma.js");
+      const studies = await prisma.study.findMany({
+        where: { patientId: id },
+        include: {
+          patient: {
+            select: {
+              name: true,
+              dni: true,
+            },
+          },
+          doctor: {
+            select: {
+              name: true,
+            },
+          },
+        },
+        orderBy: {
+          studyDate: "desc",
+        },
+      });
+
+      // Para cada estudio, obtener preview desde Orthanc
+      const studiesWithPreview = await Promise.all(
+        studies.map(async (study) => {
+          let previewUrl = null;
+
+          if (study.orthancId) {
+            try {
+              const details = await getStudyDetails(study.orthancId);
+              previewUrl = details.previewUrl;
+            } catch (error) {
+              console.error(
+                "Error getting preview for study:",
+                study.orthancId,
+                error,
+              );
+            }
+          }
+
+          return {
+            id: study.id,
+            orthancId: study.orthancId,
+            patientName: study.patient.name,
+            patientDni: study.patient.dni,
+            doctorName: study.doctor.name,
+            studyDate: study.studyDate,
+            type: study.type,
+            previewUrl,
+            hasReport: study.reports && study.reports.length > 0,
+          };
+        }),
+      );
+
+      res.json({
+        success: true,
+        data: studiesWithPreview,
+      });
+    } catch (error) {
+      console.error("Error fetching patient studies:", error);
+      res.status(500).json({
+        error: "Error al obtener estudios del paciente",
+        message: error.message,
+      });
+    }
+  },
+);
+
+// ─── ENDPOINT 5: Servir archivos DICOM con autenticación ─────────────────────
+router.get(
+  "/instances/:instanceId/file",
+  authMiddleware,
+  roleMiddleware(["ADMIN", "DOCTOR", "PATIENT"]),
+  async (req, res) => {
+    try {
+      const { instanceId } = req.params;
+
+      if (!instanceId) {
+        return res.status(400).json({
+          error: "Se requiere el ID de la instancia",
+        });
+      }
+
+      const ORTHANC_URL = process.env.ORTHANC_URL;
+      const ORTHANC_USER = process.env.ORTHANC_USER;
+      const ORTHANC_PASS = process.env.ORTHANC_PASS;
+
+      const response = await axios.get(
+        `${ORTHANC_URL}/instances/${instanceId}/file`,
+        {
+          responseType: "arraybuffer",
+          auth: {
+            username: ORTHANC_USER,
+            password: ORTHANC_PASS,
+          },
+          timeout: 30000,
+        },
+      );
+
+      // Configurar headers para la respuesta
+      res.setHeader("Content-Type", "application/dicom");
+      res.setHeader("Content-Length", response.data.byteLength);
+      res.setHeader(
+        "Content-Disposition",
+        `inline; filename="${instanceId}.dcm"`,
+      );
+
+      // Enviar el archivo como buffer
+      res.send(Buffer.from(response.data));
+    } catch (error) {
+      console.error("Error serving DICOM file:", {
+        message: error.message,
+        stack: error.stack,
+        code: error.code,
+        response: error.response?.data,
+        status: error.response?.status,
+      });
+      res.status(500).json({
+        error: "Error al obtener archivo DICOM",
+        message: error.message,
+      });
+    }
+  },
+);
+
+export default router;

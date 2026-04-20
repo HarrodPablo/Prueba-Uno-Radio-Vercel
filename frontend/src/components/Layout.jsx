@@ -2,7 +2,7 @@ import { FaFacebook, FaInstagram, FaWhatsapp } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import Logo from "../assets/img/Logo_Completo.png";
+import Logo from "../assets/img/loogo.png";
 import { useAuth } from "../context/AuthContext";
 
 const Layout = ({ children }) => {
@@ -20,6 +20,7 @@ const Layout = ({ children }) => {
     if (user?.role === "ADMIN") {
       baseItems.push(
         { name: "Usuarios", path: "/users" },
+        { name: "Orthanc", path: "/orthanc-import" },
         { name: "Estudios", path: "/admin-studies" },
       );
     } else if (user?.role === "DOCTOR") {
@@ -139,7 +140,7 @@ const Layout = ({ children }) => {
                     <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
                     <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
                   </svg>
-                  info@diagnosticolopez.com
+                  diagnosticolopez2026@gmail.com
                 </p>
               </div>
             </div>
@@ -178,7 +179,7 @@ const Layout = ({ children }) => {
                 </div>
                 <div className="text-center">
                   <a
-                    href="https://www.facebook.com/diagnosticolopez"
+                    href="https://www.facebook.com/profile.php?id=61570820751873"
                     target="_blank"
                     className="flex flex-col items-center p-2 space-y-1 transition-all duration-300 transform rounded-md group bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 hover:scale-105"
                     title="Facebook"

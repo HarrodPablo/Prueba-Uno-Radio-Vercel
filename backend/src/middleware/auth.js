@@ -3,9 +3,15 @@ import { prisma } from "../lib/prisma.js";
 
 export const authMiddleware = async (req, res, next) => {
   try {
+    console.log("🔍 AUTH MIDDLEWARE DEBUG:");
+    console.log("📋 URL:", req.url);
+    console.log("🔑 Headers:", req.headers);
+    console.log("🎯 Authorization header:", req.header("Authorization"));
+
     const token = req.header("Authorization")?.replace("Bearer ", "");
 
     if (!token) {
+      console.log("❌ No token provided");
       return res
         .status(401)
         .json({ error: "Access denied. No token provided." });
