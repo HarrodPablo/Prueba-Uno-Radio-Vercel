@@ -226,7 +226,7 @@ const OrthancImport = () => {
           <div className="mb-6">
             <div className="flex flex-col gap-4 mb-4 sm:flex-row sm:items-center sm:justify-between">
               <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
-                Importar desde Orthanc PACS
+                Importar desde Agfa
               </h1>
               <button
                 onClick={fetchOrthancStudies}
