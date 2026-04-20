@@ -228,7 +228,7 @@ export const generatePDF = (report, study) => {
         <!-- Signature Block -->
         <section class="mt-12 self-end w-64 text-right">
           <div class="mb-2">
-            <div class="w-32 h-16 border-b-2 border-primary/30 ml-auto"></div>
+            <img src="/src/assets/img/lopezz.png" alt="Firma Médico" class="w-40 h-20 object-contain ml-auto" />
           </div>
           <div class="space-y-0.5">
             <p class="text-sm font-bold text-primary">Dr. ${study.doctorName || study.doctor?.name || "Médico Radiólogo"}</p>

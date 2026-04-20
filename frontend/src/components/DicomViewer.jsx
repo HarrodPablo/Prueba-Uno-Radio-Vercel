@@ -91,7 +91,7 @@ const DicomViewer = ({
         <div className="flex items-center gap-3">
           <img src={icon} alt="DICOM" className="w-10 h-10" />
           <h3 className="text-sm font-semibold text-white">
-            Visor DICOM Profesional
+            Visor diagnostico por imagenes López
           </h3>
           {/*-orthancId && (
             <p className="text-gray-400 text-[10px] uppercase tracking-wider">
@@ -190,10 +190,8 @@ const DicomViewer = ({
         )}
 
         <div className="pt-6 mt-auto border-t border-gray-800">
-          <p className="text-xs leading-tight text-gray-600">
-            Powered by Stone Web Viewer
-            <br />
-            Utilice el mouse para ajustar brillo (W/L) y zoom.
+          <p className="text-xs leading-tight text-gray-600">            
+           Utilice el mouse para ajustar brillo (W/L) y zoom.
           </p>
         </div>
       </div>

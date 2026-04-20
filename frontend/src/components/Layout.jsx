@@ -20,7 +20,7 @@ const Layout = ({ children }) => {
     if (user?.role === "ADMIN") {
       baseItems.push(
         { name: "Usuarios", path: "/users" },
-        { name: "Orthanc", path: "/orthanc-import" },
+        { name: "Importar", path: "/orthanc-import" },
         { name: "Estudios", path: "/admin-studies" },
       );
     } else if (user?.role === "DOCTOR") {
