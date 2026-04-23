@@ -125,6 +125,7 @@ router.get("/", authMiddleware, async (req, res) => {
       dateTo = "",
       patientId = "",
       onlyWithoutReports = false,
+      status = "",
     } = req.query;
 
     const skip = (page - 1) * limit;
@@ -159,6 +160,10 @@ router.get("/", authMiddleware, async (req, res) => {
 
     if (onlyWithoutReports === "true") {
       where.reports = { none: {} };
+    }
+
+    if (status) {
+      where.status = status;
     }
 
     if (req.user.role === "PATIENT") {
@@ -556,5 +561,35 @@ router.get("/:id/dicom", authMiddleware, async (req, res) => {
     res.status(500).json({ error: "Error al servir imagen" });
   }
 });
+
+// PATCH STUDY STATUS
+router.patch(
+  "/:orthancId/status",
+  authMiddleware,
+  roleMiddleware(["ADMIN", "DOCTOR"]),
+  async (req, res) => {
+    try {
+      const { status } = req.body;
+
+      if (!status || !["PENDING", "IMPORTED", "COMPLETED"].includes(status)) {
+        return res.status(400).json({ error: "Estado inválido" });
+      }
+
+      const study = await prisma.study.updateMany({
+        where: { orthancId: req.params.orthancId },
+        data: { status: status },
+      });
+
+      if (study.count === 0) {
+        return res.status(404).json({ error: "Estudio no encontrado" });
+      }
+
+      res.json({ message: "Estado actualizado correctamente" });
+    } catch (error) {
+      console.error("Error updating study status:", error);
+      res.status(500).json({ error: "Error al actualizar estado" });
+    }
+  },
+);
 
 export default router;

@@ -190,8 +190,8 @@ const DicomViewer = ({
         )}
 
         <div className="pt-6 mt-auto border-t border-gray-800">
-          <p className="text-xs leading-tight text-gray-600">            
-           Utilice el mouse para ajustar brillo (W/L) y zoom.
+          <p className="text-xs leading-tight text-gray-600">
+            Utilice el mouse para ajustar brillo (W/L) y zoom.
           </p>
         </div>
       </div>

@@ -4,6 +4,7 @@ import {
   BrowserRouter as Router,
   Routes,
 } from "react-router-dom";
+import { ToastContainer } from "react-toastify";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import AdminStudies from "./pages/AdminStudies";
 import Calendar from "./pages/Calendar";
@@ -155,6 +156,7 @@ function App() {
         <div className="App">
           <AppRoutes />
         </div>
+        <ToastContainer />
       </AuthProvider>
     </Router>
   );

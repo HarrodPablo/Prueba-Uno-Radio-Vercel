@@ -31,7 +31,6 @@ const sendWhatsAppNotification = async (phoneNumber, message) => {
       to: `whatsapp:${phoneNumber}`,
     });
 
-    // console.log("WhatsApp message sent successfully:", response.sid);
     return response;
   } catch (error) {
     console.error("Error sending WhatsApp message:", error);

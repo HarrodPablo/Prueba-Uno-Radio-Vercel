@@ -70,9 +70,7 @@ app.use("/api/orthanc", orthancRoutes);
 // ─── Health check ─────────────────────────────────────────────
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
 
-const server = app.listen(PORT, () => {
-  console.log(`Servidor corriendo en puerto ${PORT}`);
-});
+const server = app.listen(PORT, () => {});
 
 server.on("error", (err) => {
   console.error("❌ Error iniciando servidor:", err?.message || err);

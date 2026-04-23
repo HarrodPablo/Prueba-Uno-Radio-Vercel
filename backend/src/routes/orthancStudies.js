@@ -3,12 +3,12 @@ import bcrypt from "bcryptjs";
 import express from "express";
 import { authMiddleware, roleMiddleware } from "../middleware/auth.js";
 import { orthancProxyAuth } from "../middleware/orthancProxyAuth.js";
+import { patientCanAccessOrthancPath } from "../services/orthancPatientAccess.js";
 import {
   checkOrthancConnection,
   getStudies,
   getStudyDetails,
 } from "../services/orthancService.js";
-import { patientCanAccessOrthancPath } from "../services/orthancPatientAccess.js";
 
 const router = express.Router();
 
@@ -56,7 +56,12 @@ function rewriteOrthancHtml(html, token, orthancPath = "/") {
       return rel;
     }
     // already absolute-ish (starts with / or protocol)
-    if (rel.startsWith("/") || rel.startsWith("http://") || rel.startsWith("https://") || rel.startsWith("data:")) {
+    if (
+      rel.startsWith("/") ||
+      rel.startsWith("http://") ||
+      rel.startsWith("https://") ||
+      rel.startsWith("data:")
+    ) {
       return rel;
     }
     // normalize ./ prefix
@@ -64,39 +69,47 @@ function rewriteOrthancHtml(html, token, orthancPath = "/") {
     return `${PRE}${baseDir}${cleaned}`;
   };
 
-  return html
-    .replace(/\s(href|src)=(["'])(\/[^"']*)\2/gi, (m, attr, q, p) => {
-      if (
-        p.startsWith("http://") ||
-        p.startsWith("https://") ||
-        p.startsWith("data:")
-      ) {
-        return m;
-      }
-      if (p.startsWith(PRE)) return ` ${attr}=${q}${appendToken(p)}${q}`;
-      if (p.startsWith("/api/") && !p.startsWith(PRE)) return m;
-      const np = `${PRE}${p}`;
-      return ` ${attr}=${q}${appendToken(np)}${q}`;
-    })
-    // Rewrite relative asset paths like css/all.css, js/app.js, img/x.png
-    .replace(/\s(href|src)=(["'])(?!\/|https?:|data:|#|mailto:|javascript:)([^"']+)\2/gi, (m, attr, q, p) => {
-      const np = absolutizeRelative(p);
-      if (!np || np === p) return m;
-      return ` ${attr}=${q}${appendToken(np)}${q}`;
-    })
-    .replace(/url\(\s*([\'"]?)(\/[^)\'"]+)\1\s*\)/gi, (m, q, p) => {
-      if (p.startsWith("http://") || p.startsWith("https://")) return m;
-      if (p.startsWith(PRE)) return `url(${q}${appendToken(p)}${q})`;
-      if (p.startsWith("/api/") && !p.startsWith(PRE)) return m;
-      const np = `${PRE}${p}`;
-      return `url(${q}${appendToken(np)}${q})`;
-    })
-    // Rewrite relative CSS url() like url(img/foo.png)
-    .replace(/url\(\s*([\'"]?)(?!\/|https?:|data:)([^)\'"]+)\1\s*\)/gi, (m, q, p) => {
-      const np = absolutizeRelative(p);
-      if (!np || np === p) return m;
-      return `url(${q}${appendToken(np)}${q})`;
-    });
+  return (
+    html
+      .replace(/\s(href|src)=(["'])(\/[^"']*)\2/gi, (m, attr, q, p) => {
+        if (
+          p.startsWith("http://") ||
+          p.startsWith("https://") ||
+          p.startsWith("data:")
+        ) {
+          return m;
+        }
+        if (p.startsWith(PRE)) return ` ${attr}=${q}${appendToken(p)}${q}`;
+        if (p.startsWith("/api/") && !p.startsWith(PRE)) return m;
+        const np = `${PRE}${p}`;
+        return ` ${attr}=${q}${appendToken(np)}${q}`;
+      })
+      // Rewrite relative asset paths like css/all.css, js/app.js, img/x.png
+      .replace(
+        /\s(href|src)=(["'])(?!\/|https?:|data:|#|mailto:|javascript:)([^"']+)\2/gi,
+        (m, attr, q, p) => {
+          const np = absolutizeRelative(p);
+          if (!np || np === p) return m;
+          return ` ${attr}=${q}${appendToken(np)}${q}`;
+        },
+      )
+      .replace(/url\(\s*([\'"]?)(\/[^)\'"]+)\1\s*\)/gi, (m, q, p) => {
+        if (p.startsWith("http://") || p.startsWith("https://")) return m;
+        if (p.startsWith(PRE)) return `url(${q}${appendToken(p)}${q})`;
+        if (p.startsWith("/api/") && !p.startsWith(PRE)) return m;
+        const np = `${PRE}${p}`;
+        return `url(${q}${appendToken(np)}${q})`;
+      })
+      // Rewrite relative CSS url() like url(img/foo.png)
+      .replace(
+        /url\(\s*([\'"]?)(?!\/|https?:|data:)([^)\'"]+)\1\s*\)/gi,
+        (m, q, p) => {
+          const np = absolutizeRelative(p);
+          if (!np || np === p) return m;
+          return `url(${q}${appendToken(np)}${q})`;
+        },
+      )
+  );
 }
 
 const pacsProxyHandler = async (req, res) => {
@@ -337,7 +350,6 @@ router.post(
           }
         }
       }
-      console.log("ORTHANC RAW:", studyDetails);
       // Crear estudio en la base de datos local
 
       const study = await prisma.study.create({

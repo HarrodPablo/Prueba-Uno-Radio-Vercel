@@ -1,6 +1,6 @@
 import axios from "axios";
 import React, { useCallback, useEffect, useState } from "react";
-import { toast, ToastContainer } from "react-toastify";
+import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Layout from "../components/Layout";
 import { useAuth } from "../context/AuthContext";
@@ -12,6 +12,10 @@ const OrthancImport = () => {
   const [orthancLoading, setOrthancLoading] = useState(false);
   const [orthancError, setOrthancError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [viewMode, setViewMode] = useState("pending"); // "pending" o "completed"
+  const [completedStudies, setCompletedStudies] = useState([]);
+  const [completedLoading, setCompletedLoading] = useState(false);
+  const [existingPatients, setExistingPatients] = useState(new Set()); // Track existing patients by DNI:orthancId
 
   // Función para formatear fecha DICOM (YYYYMMDD)
   const formatDicomDate = (dateString) => {
@@ -81,7 +85,8 @@ const OrthancImport = () => {
 
       const response = await axios.get("/api/orthanc/studies");
 
-      setOrthancStudies(response.data.data || []);
+      const studies = response.data.data || [];
+      setOrthancStudies(studies);
     } catch (err) {
       console.error("Error fetching Orthanc studies:", err);
       setOrthancError("Error al obtener estudios desde Orthanc");
@@ -94,30 +99,192 @@ const OrthancImport = () => {
     }
   }, []);
 
+  // Función para obtener estudios completados
+  const fetchCompletedStudies = useCallback(async () => {
+    try {
+      setCompletedLoading(true);
+      const response = await axios.get("/api/studies?status=COMPLETED");
+      const studies = response.data.studies || response.data.items || [];
+      setCompletedStudies(studies);
+
+      // Verificar específicamente si nuestro estudio está en la lista
+      const targetStudyId = "fc06fc2d-aa48f087-c3dd986b-455a88aa-7f9b72ef";
+      const foundInCompleted = studies.some(
+        (s) => s.orthancId === targetStudyId,
+      );
+    } catch (err) {
+      console.error("Error fetching completed studies:", err);
+    } finally {
+      setCompletedLoading(false);
+    }
+  }, []);
+
+  // Cargar datos específicos cuando cambia viewMode
+  useEffect(() => {
+    if (viewMode === "completed") {
+      fetchCompletedStudies();
+    }
+  }, [viewMode, fetchCompletedStudies]);
+
   // Cargar estudios al montar el componente
   useEffect(() => {
     fetchOrthancStudies();
-  }, [fetchOrthancStudies]);
+    fetchCompletedStudies();
+  }, [fetchOrthancStudies, fetchCompletedStudies]);
 
-  // Función para filtrar estudios
-  const filteredStudies = orthancStudies.filter((study) => {
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      (study.PatientName || study.patientName)
-        ?.toLowerCase()
-        .includes(searchLower) ||
-      study.orthancId?.toLowerCase().includes(searchLower) ||
-      (study.StudyDate || study.studyDate)
-        ?.toLowerCase()
-        .includes(searchLower) ||
-      (study.StudyDescription || study.type)
-        ?.toLowerCase()
-        .includes(searchLower)
-    );
-  });
+  // Verificar pacientes existentes solo al cargar los estudios por primera vez
+  useEffect(() => {
+    if (orthancStudies.length > 0 && existingPatients.size === 0) {
+      checkExistingPatients(orthancStudies);
+    }
+  }, [orthancStudies, existingPatients.size]);
+
+  // Función para filtrar y ordenar estudios
+  const filteredStudies = orthancStudies
+    .filter((study) => {
+      const patientDni = study.PatientID || study.patientDni;
+      const uniqueKey = `${patientDni}:${study.orthancId}`;
+      const hasExistingPatient = existingPatients.has(uniqueKey);
+      const searchLower = searchTerm.toLowerCase();
+
+      // Primero filtrar por búsqueda
+      const matchesSearch =
+        (study.PatientName || study.patientName)
+          ?.toLowerCase()
+          .includes(searchLower) ||
+        study.orthancId?.toLowerCase().includes(searchLower) ||
+        (study.StudyDate || study.studyDate)
+          ?.toLowerCase()
+          .includes(searchLower) ||
+        (study.StudyDescription || study.type)
+          ?.toLowerCase()
+          .includes(searchLower);
+
+      // Luego filtrar para no mostrar estudios ya completados
+      const isAlreadyCompleted = completedStudies.some(
+        (completedStudy) => completedStudy.orthancId === study.orthancId,
+      );
+
+      return matchesSearch && !isAlreadyCompleted;
+    })
+    .sort((a, b) => {
+      // Ordenar por fecha de estudio (más reciente primero)
+      const dateA = a.StudyDate || a.studyDate || "";
+      const dateB = b.StudyDate || b.studyDate || "";
+
+      // Convertir fecha DICOM (YYYYMMDD) a Date para comparación
+      const convertDicomDate = (dateString) => {
+        if (!dateString || dateString.length !== 8) return new Date(0);
+        const year = dateString.substring(0, 4);
+        const month = dateString.substring(4, 6);
+        const day = dateString.substring(6, 8);
+        return new Date(`${year}-${month}-${day}`);
+      };
+
+      const dateAObj = convertDicomDate(dateA);
+      const dateBObj = convertDicomDate(dateB);
+
+      // Orden descendente (más reciente primero)
+      return dateBObj - dateAObj;
+    });
+
+  // Función para verificar todos los pacientes existentes
+  const checkExistingPatients = async (studies) => {
+    const existing = new Set();
+
+    for (const study of studies) {
+      const patientDni = study.PatientID || study.patientDni;
+      if (!patientDni) continue;
+
+      try {
+        const response = await axios.get(
+          `/api/users?search=${encodeURIComponent(patientDni)}&limit=10&page=1`,
+        );
+
+        const found = response.data?.users?.find((u) => u.dni === patientDni);
+        if (found) {
+          const uniqueKey = `${patientDni}:${study.orthancId}`;
+          existing.add(uniqueKey);
+        }
+      } catch (error) {
+        console.error(`Error verificando paciente ${patientDni}:`, error);
+      }
+    }
+
+    setExistingPatients(existing);
+  };
+
+  // Función para verificar si paciente ya existe
+  const checkPatientExists = async (orthancStudy) => {
+    const patientDni = orthancStudy.PatientID || orthancStudy.patientDni;
+    if (!patientDni) return false;
+
+    try {
+      const response = await axios.get(
+        `/api/users?search=${encodeURIComponent(patientDni)}&limit=10&page=1`,
+      );
+
+      const found = response.data?.users?.find((u) => u.dni === patientDni);
+      return !!found;
+    } catch (error) {
+      console.error("Error verificando si paciente existe:", error);
+      return false;
+    }
+  };
+
+  // Función para marcar estudio como completado
+  const handleMarkAsCompleted = async (study) => {
+    try {
+      // Solo marcar el estudio como completado (no crear usuario)
+      const response = await axios.patch(
+        `/api/studies/${study.orthancId}/status`,
+        {
+          status: "COMPLETED",
+        },
+      );
+
+      toast.success("Estudio marcado como LISTO/CREADO", {
+        autoClose: 3000,
+        position: "top-right",
+      });
+
+      // Refrescar solo completedStudies (sin volver a verificar pacientes existentes)
+
+      // Pequeño delay para asegurar que el backend actualizó los datos
+      setTimeout(() => {
+        fetchCompletedStudies();
+
+        // También refrescar orthancStudies para que el estudio marcado desaparezca de pendientes
+        // pero SIN volver a verificar pacientes existentes
+        setOrthancStudies((prev) =>
+          prev.filter((s) => s.orthancId !== study.orthancId),
+        );
+
+        // Actualizar el estado de pacientes existentes para mantener consistencia
+        const patientDni = study.PatientID || study.patientDni;
+        if (patientDni) {
+          const uniqueKey = `${patientDni}:${study.orthancId}`;
+          setExistingPatients((prev) => new Set([...prev, uniqueKey]));
+        }
+      }, 500);
+    } catch (error) {
+      console.error("Error marking study as completed:", error);
+      toast.error("Error al marcar estudio como completado", {
+        autoClose: 5000,
+        position: "top-right",
+      });
+    }
+  };
 
   // Función para importar desde Orthanc
   const handleImportFromOrthanc = async (orthancStudy) => {
+    // Prevenir múltiples ejecuciones simultáneas
+    if (orthancStudy.importing) {
+      return;
+    }
+
+    // Marcar como importando
+    orthancStudy.importing = true;
     try {
       // Crear usuario con datos formateados del DICOM
       const patientDni =
@@ -126,7 +293,9 @@ const OrthancImport = () => {
         "AUTO-" + Date.now();
 
       const payload = {
-        name: formatDicomName(orthancStudy.PatientName || orthancStudy.patientName),
+        name: formatDicomName(
+          orthancStudy.PatientName || orthancStudy.patientName,
+        ),
         dni: patientDni,
         phone: "0000000000",
         email: "",
@@ -143,14 +312,38 @@ const OrthancImport = () => {
       } catch (err) {
         const msg = err?.response?.data?.error || err?.message || "";
         // Si ya existe, lo buscamos y lo reutilizamos
-        if (err?.response?.status === 400 && String(msg).toLowerCase().includes("usuario ya existe")) {
+        if (
+          err?.response?.status === 400 &&
+          (String(msg).toLowerCase().includes("usuario ya existe") ||
+            String(msg).toLowerCase().includes("already exists") ||
+            String(msg).toLowerCase().includes("dni"))
+        ) {
           const existing = await axios.get(
             `/api/users?search=${encodeURIComponent(patientDni)}&limit=1&page=1`,
           );
           const found = existing.data?.users?.find((u) => u.dni === patientDni);
-          if (!found) throw err;
-          userId = found.id;
-          createdUser = found;
+          if (!found) {
+            // Si no encontramos por búsqueda, intentamos buscar directamente por DNI
+            try {
+              const directSearch = await axios.get(
+                `/api/users?search=${patientDni}&limit=10&page=1`,
+              );
+              const directFound = directSearch.data?.users?.find(
+                (u) => u.dni === patientDni,
+              );
+              if (directFound) {
+                userId = directFound.id;
+                createdUser = directFound;
+              } else {
+                throw err;
+              }
+            } catch (searchErr) {
+              throw err;
+            }
+          } else {
+            userId = found.id;
+            createdUser = found;
+          }
         } else {
           throw err;
         }
@@ -164,26 +357,14 @@ const OrthancImport = () => {
 
       // Mostrar mensaje de éxito con credenciales de login
       toast.success(
-        `✅ Usuario "${createdUser?.name || payload.name}" listo!\n\n📋 Credenciales de acceso:\n• Usuario: ${patientDni}\n• Contraseña: ${patientDni}`,
-        {
-          autoClose: 20000, // 20 segundos para dar tiempo de leer
-          hideProgressBar: false,
-          closeOnClick: false, // No cerrar al hacer clic
-          pauseOnHover: true,
-          draggable: true,
-          position: "top-right", // Esquina superior derecha
-          style: {
-            background: "linear-gradient(to right, #00b09b, #96c93d)",
-            fontSize: "14px",
-            fontWeight: "bold",
-            padding: "16px",
-            whiteSpace: "pre-line",
-          },
-        },
+        `Usuario "${createdUser?.name || payload.name}" listo!\n\nCredenciales de acceso:\nUsuario: ${patientDni}\nContraseña: ${patientDni}`,
       );
 
-      // Refrescar lista de estudios Orthanc
-      fetchOrthancStudies();
+      // Actualizar el estado de pacientes existentes para habilitar el botón LISTO
+      if (patientDni) {
+        const uniqueKey = `${patientDni}:${orthancStudy.orthancId}`;
+        setExistingPatients((prev) => new Set([...prev, uniqueKey]));
+      }
     } catch (error) {
       console.error("Error creando usuario desde Orthanc:", error);
       toast.error("Error al crear usuario desde Orthanc", {
@@ -192,6 +373,9 @@ const OrthancImport = () => {
         closeOnClick: true,
         position: "top-right",
       });
+    } finally {
+      // Limpiar bandera de importación
+      orthancStudy.importing = false;
     }
   };
 
@@ -226,14 +410,47 @@ const OrthancImport = () => {
           <div className="mb-6">
             <div className="flex flex-col gap-4 mb-4 sm:flex-row sm:items-center sm:justify-between">
               <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
-                Importar desde Agfa
+                {viewMode === "pending"
+                  ? "Importar desde Agfa"
+                  : "Estudios LISTO/CREADO"}
               </h1>
-              <button
-                onClick={fetchOrthancStudies}
-                className="px-4 py-2 text-white transition-colors bg-blue-600 rounded-md hover:bg-blue-700"
-              >
-                Refrescar
-              </button>
+              <div className="flex gap-2">
+                <button
+                  onClick={
+                    viewMode === "pending"
+                      ? fetchOrthancStudies
+                      : fetchCompletedStudies
+                  }
+                  className="px-4 py-2 text-white transition-colors bg-blue-600 rounded-md hover:bg-blue-700"
+                >
+                  Refrescar
+                </button>
+                <button
+                  onClick={() => {
+                    setViewMode("pending");
+                  }}
+                  className={`px-4 py-2 transition-colors rounded-md ${
+                    viewMode === "pending"
+                      ? "bg-yellow-500 text-white"
+                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  }`}
+                >
+                  Pendientes
+                </button>
+
+                <button
+                  onClick={() => {
+                    setViewMode("completed");
+                  }}
+                  className={`px-4 py-2 transition-colors rounded-md ${
+                    viewMode === "completed"
+                      ? "bg-green-600 text-white"
+                      : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                  }`}
+                >
+                  LISTO
+                </button>
+              </div>
             </div>
 
             {/* Buscador */}
@@ -284,7 +501,7 @@ const OrthancImport = () => {
           </div>
 
           {/* Tabla de estudios */}
-          {orthancStudies.length === 0 ? (
+          {viewMode === "pending" && orthancStudies.length === 0 ? (
             <div className="py-12 text-center">
               <div className="w-16 h-16 mx-auto mb-4 text-gray-400">
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -297,7 +514,23 @@ const OrthancImport = () => {
                 </svg>
               </div>
               <p className="text-gray-500">
-                No se encontraron estudios en Orthanc
+                No se encontraron estudios pendientes en Orthanc
+              </p>
+            </div>
+          ) : viewMode === "completed" && completedStudies.length === 0 ? (
+            <div className="py-12 text-center">
+              <div className="w-16 h-16 mx-auto mb-4 text-green-400">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <p className="text-gray-500">
+                No hay estudios marcados como LISTO/CREADO
               </p>
             </div>
           ) : (
@@ -308,60 +541,113 @@ const OrthancImport = () => {
                   <thead className="bg-quinty">
                     <tr>
                       <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
-                        💳 DNI
+                        <span className="font-mono text-xs">DNI</span>
                       </th>
                       <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
-                        👤 NOMBRE
+                        <span className="font-mono text-xs">Nombre</span>
                       </th>
                       <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
-                        📅 Fecha
+                        <span className="font-mono text-xs">Fecha</span>
                       </th>
                       <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
-                        📄 Tipo
+                        <span className="font-mono text-xs">Tipo</span>
                       </th>
                       <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
-                        🧿 Imágenes
+                        <span className="font-mono text-xs">Imágenes</span>
                       </th>
                       <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
-                        ⚡ Acciones
+                        <span className="font-mono text-xs">Acciones</span>
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredStudies.map((study) => (
-                      <React.Fragment key={study.orthancId}>
+                    {(viewMode === "pending"
+                      ? filteredStudies
+                      : completedStudies
+                    ).map((study, index) => (
+                      <React.Fragment
+                        key={`${viewMode}-desktop-${study.orthancId}-${index}`}
+                      >
                         <tr className="hover:bg-primaryB">
                           <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
                             <span className="font-mono text-xs">
-                              {study.PatientID || study.patientDni || "N/A"}
+                              {viewMode === "pending"
+                                ? study.PatientID || study.patientDni || "N/A"
+                                : study.patient?.dni || "N/A"}
                             </span>
                           </td>
                           <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
-                            {formatDicomName(
-                              study.PatientName || study.patientName,
-                            )}
+                            {viewMode === "pending"
+                              ? formatDicomName(
+                                  study.PatientName || study.patientName,
+                                )
+                              : study.patient?.name || "N/A"}
                           </td>
                           <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
-                            {formatDicomDate(
-                              study.StudyDate || study.studyDate,
-                            )}
+                            {viewMode === "pending"
+                              ? formatDicomDate(
+                                  study.StudyDate || study.studyDate,
+                                )
+                              : study.date
+                                ? new Date(study.date).toLocaleDateString(
+                                    "es-AR",
+                                    {
+                                      day: "2-digit",
+                                      month: "2-digit",
+                                      year: "numeric",
+                                    },
+                                  )
+                                : "N/A"}
                           </td>
-
                           <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
-                            {study.StudyDescription || study.type || "N/A"}
+                            {viewMode === "pending"
+                              ? study.StudyDescription || study.type || "N/A"
+                              : study.type || "N/A"}
                           </td>
                           <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
                             <span className="font-mono text-xs">
-                              {study.Series || "N/A"}
+                              {
+                                viewMode === "pending"
+                                  ? study.Series || "N/A"
+                                  : "1" // Estudios completados siempre tienen al menos 1 imagen
+                              }
                             </span>
                           </td>
                           <td className="px-6 py-4 text-sm font-medium text-center whitespace-nowrap">
-                            <button
-                              onClick={() => handleImportFromOrthanc(study)}
-                              className="px-3 py-1 text-sm text-white transition-colors rounded-md bg-quinty hover:bg-cuarty"
-                            >
-                              Crear
-                            </button>
+                            {viewMode === "pending" ? (
+                              <div className="flex justify-center gap-2">
+                                <button
+                                  onClick={() => handleImportFromOrthanc(study)}
+                                  className="px-3 py-1 text-sm text-white transition-colors rounded-md bg-quinty hover:bg-cuarty"
+                                  disabled={existingPatients.has(
+                                    `${study.PatientID || study.patientDni}:${study.orthancId}`,
+                                  )}
+                                >
+                                  Crear
+                                </button>
+                                <button
+                                  onClick={() => handleMarkAsCompleted(study)}
+                                  className={`px-3 py-1 text-sm text-white transition-colors rounded-md ${
+                                    existingPatients.has(
+                                      `${study.PatientID || study.patientDni}:${study.orthancId}`,
+                                    )
+                                      ? "bg-green-600 hover:bg-green-700"
+                                      : "bg-gray-400 cursor-not-allowed"
+                                  }`}
+                                  disabled={
+                                    !existingPatients.has(
+                                      `${study.PatientID || study.patientDni}:${study.orthancId}`,
+                                    )
+                                  }
+                                >
+                                  ✅ LISTO
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-sm font-medium text-septy">
+                                Completado
+                              </span>
+                            )}
                           </td>
                         </tr>
                       </React.Fragment>
@@ -373,42 +659,73 @@ const OrthancImport = () => {
               {/* Versión Mobile - Cards */}
               <div className="lg:hidden">
                 <div className="divide-y divide-gray-200">
-                  {filteredStudies.map((study) => (
-                    <div key={study.orthancId} className="p-4 hover:bg-gray-50">
+                  {(viewMode === "pending"
+                    ? filteredStudies
+                    : completedStudies
+                  ).map((study, index) => (
+                    <div
+                      key={`${viewMode}-mobile-${study.orthancId}-${index}`}
+                      className="p-4 hover:bg-gray-50"
+                    >
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
                           <h3 className="text-lg font-medium text-gray-900">
-                            {formatDicomName(
-                              study.PatientName || study.patientName,
-                            )}
+                            {viewMode === "pending"
+                              ? formatDicomName(
+                                  study.PatientName || study.patientName,
+                                )
+                              : study.patient?.name || "N/A"}
                           </h3>
                           <div className="mt-1 space-y-1">
                             <p className="text-sm text-gray-600">
                               <span className="font-medium">DNI:</span>{" "}
                               <span className="font-mono text-xs">
-                                {study.PatientID || study.patientDni || "N/A"}
+                                {viewMode === "pending"
+                                  ? study.PatientID || study.patientDni || "N/A"
+                                  : study.patient?.dni || "N/A"}
                               </span>
                             </p>
                             <p className="text-sm text-gray-600">
                               <span className="font-medium">Fecha:</span>{" "}
-                              {formatDicomDate(
-                                study.StudyDate || study.studyDate,
-                              )}
+                              {viewMode === "pending"
+                                ? formatDicomDate(
+                                    study.StudyDate || study.studyDate,
+                                  )
+                                : study.date
+                                  ? new Date(study.date).toLocaleDateString(
+                                      "es-AR",
+                                      {
+                                        day: "2-digit",
+                                        month: "2-digit",
+                                        year: "numeric",
+                                      },
+                                    )
+                                  : "N/A"}
                             </p>
                             <p className="text-sm text-gray-600">
                               <span className="font-medium">Hora:</span>{" "}
-                              {formatDicomTime(
-                                study.StudyTime || study.studyTime,
-                              )}
+                              {
+                                viewMode === "pending"
+                                  ? formatDicomTime(
+                                      study.StudyTime || study.studyTime,
+                                    )
+                                  : "N/A" // Estudios completados no tienen hora específica
+                              }
                             </p>
                             <p className="text-sm text-gray-600">
                               <span className="font-medium">Tipo:</span>{" "}
-                              {study.StudyDescription || study.type || "N/A"}
+                              {viewMode === "pending"
+                                ? study.StudyDescription || study.type || "N/A"
+                                : study.type || "N/A"}
                             </p>
                             <p className="text-sm text-gray-600">
                               <span className="font-medium">Imágenes:</span>{" "}
                               <span className="font-mono text-xs">
-                                {study.Series || "N/A"}
+                                {
+                                  viewMode === "pending"
+                                    ? study.Series || "N/A"
+                                    : "1" // Estudios completados siempre tienen al menos 1 imagen
+                                }
                               </span>
                             </p>
                           </div>
@@ -450,14 +767,48 @@ const OrthancImport = () => {
                           </div>
                         </div>
                       </div>
-                      <div className="flex pt-3 space-x-3 border-t border-gray-100">
-                        <button
-                          onClick={() => handleImportFromOrthanc(study)}
-                          className="flex-1 px-3 py-2 text-white transition-colors rounded-md bg-quinty hover:bg-cuarty"
-                        >
-                          Crear
-                        </button>
-                      </div>
+                      {viewMode === "pending" ? (
+                        <div className="flex pt-3 space-x-3 border-t border-gray-100">
+                          <button
+                            onClick={() => handleImportFromOrthanc(study)}
+                            className={`flex-1 px-3 py-2 text-white transition-colors rounded-md ${
+                              existingPatients.has(
+                                `${study.PatientID || study.patientDni}:${study.orthancId}`,
+                              )
+                                ? "bg-gray-400 cursor-not-allowed"
+                                : "bg-quinty hover:bg-cuarty"
+                            }`}
+                            disabled={existingPatients.has(
+                              `${study.PatientID || study.patientDni}:${study.orthancId}`,
+                            )}
+                          >
+                            Crear
+                          </button>
+                          <button
+                            onClick={() => handleMarkAsCompleted(study)}
+                            className={`flex-1 px-3 py-2 text-white transition-colors rounded-md ${
+                              existingPatients.has(
+                                `${study.PatientID || study.patientDni}:${study.orthancId}`,
+                              )
+                                ? "bg-green-600 hover:bg-green-700"
+                                : "bg-gray-400 cursor-not-allowed"
+                            }`}
+                            disabled={
+                              !existingPatients.has(
+                                `${study.PatientID || study.patientDni}:${study.orthancId}`,
+                              )
+                            }
+                          >
+                            LISTO
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="pt-3 border-t border-gray-100">
+                          <div className="text-sm font-medium text-center text-gray-500">
+                            Completado
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -466,20 +817,6 @@ const OrthancImport = () => {
           )}
         </div>
       </div>
-
-      <ToastContainer
-        position="top-right"
-        autoClose={8000}
-        hideProgressBar={false}
-        newestOnTop={true}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="colored"
-        limit={3}
-      />
     </Layout>
   );
 };

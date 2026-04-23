@@ -38,6 +38,7 @@ model Study {
   imageHeight      Int? // Alto en pixels (del original Agfa)
   studyInstanceUid String? // UID de instancia DICOM desde Orthanc
   notes            String?
+  status           StudyStatus @default(PENDING) // Estado del estudio: PENDING, IMPORTED, COMPLETED
   date             DateTime @default(now())
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -67,4 +68,10 @@ enum UserRole {
   ADMIN
   DOCTOR
   PATIENT
+}
+
+enum StudyStatus {
+  PENDING    // Pendiente de importar desde Orthanc
+  IMPORTED   // Importado pero no completado
+  COMPLETED  // Completado y listo
 }
