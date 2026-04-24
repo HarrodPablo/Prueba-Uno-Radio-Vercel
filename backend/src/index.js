@@ -31,7 +31,7 @@ app.use(
       "https://www.diagnosticolopez.com", // <--- AGREGÁ ESTA LÍNEA
       "https://diagnosticolopez.com", // <--- Y ESTA (por las dudas)
     ],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Agregué OPTIONS
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"], // Agregué OPTIONS y PATCH
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
     maxAge: 86400,
