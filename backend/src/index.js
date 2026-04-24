@@ -25,11 +25,16 @@ const PORT = process.env.PORT || 3000;
 // ─── Middlewares globales ──────────────────────────────────────
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://diagnostico-lopez.vercel.app"],
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    origin: [
+      "http://localhost:5173",
+      "https://diagnostico-lopez.vercel.app",
+      "https://www.diagnosticolopez.com", // <--- AGREGÁ ESTA LÍNEA
+      "https://diagnosticolopez.com", // <--- Y ESTA (por las dudas)
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Agregué OPTIONS
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
-    maxAge: 86400, // 🔥 cachea preflight 24h
+    maxAge: 86400,
   }),
 );
 
