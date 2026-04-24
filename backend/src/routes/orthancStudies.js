@@ -130,6 +130,7 @@ const pacsProxyHandler = async (req, res) => {
     const qstr = u.searchParams.toString();
     const targetUrl = `${ORTHANC_BASE}${orthancPath}${qstr ? `?${qstr}` : ""}`;
 
+    // Stream response directly when possible to avoid buffer copies
     const response = await axios({
       method: req.method,
       url: targetUrl,
@@ -137,7 +138,7 @@ const pacsProxyHandler = async (req, res) => {
         username: process.env.ORTHANC_USER,
         password: process.env.ORTHANC_PASS,
       },
-      responseType: "arraybuffer",
+      responseType: "stream",
       timeout: 120000,
       validateStatus: () => true,
       headers: {
@@ -145,35 +146,70 @@ const pacsProxyHandler = async (req, res) => {
       },
     });
 
-    const ct = (response.headers["content-type"] || "").toLowerCase();
-    const buf = Buffer.from(response.data);
-
+    // Copy essential headers
+    const ct = response.headers["content-type"] || "";
     if (response.headers["content-disposition"]) {
       res.setHeader(
         "Content-Disposition",
         response.headers["content-disposition"],
       );
     }
-
-    if (ct.includes("text/html")) {
-      let text = buf.toString("utf8");
-      text = rewriteOrthancHtml(text, tokenQs, orthancPath);
-      res.setHeader("Content-Type", "text/html; charset=utf-8");
-      res.setHeader("Content-Length", Buffer.byteLength(text));
-      return res.status(response.status).send(text);
+    if (response.headers["content-length"]) {
+      res.setHeader("Content-Length", response.headers["content-length"]);
+    }
+    if (response.headers["etag"]) {
+      res.setHeader("ETag", response.headers["etag"]);
+    }
+    if (response.headers["last-modified"]) {
+      res.setHeader("Last-Modified", response.headers["last-modified"]);
     }
 
-    if (ct) {
-      res.setHeader("Content-Type", ct.split(";")[0].trim());
+    // Handle HTML content specially for token rewriting
+    if (ct.toLowerCase().includes("text/html")) {
+      // For HTML, we need to buffer to rewrite URLs
+      const chunks = [];
+      response.data.on("data", (chunk) => chunks.push(chunk));
+      response.data.on("end", () => {
+        const buf = Buffer.concat(chunks);
+        let text = buf.toString("utf8");
+        text = rewriteOrthancHtml(text, tokenQs, orthancPath);
+        res.setHeader("Content-Type", "text/html; charset=utf-8");
+        res.setHeader("Content-Length", Buffer.byteLength(text));
+        res.status(response.status).send(text);
+      });
+      response.data.on("error", (err) => {
+        console.error("Stream error:", err);
+        res.status(502).json({
+          error: "Error al obtener recurso desde Orthanc",
+          message: err.message,
+        });
+      });
+    } else {
+      // For non-HTML content, stream directly
+      if (ct) {
+        res.setHeader("Content-Type", ct.split(";")[0].trim());
+      }
+      res.status(response.status);
+      response.data.pipe(res);
+
+      response.data.on("error", (err) => {
+        console.error("Stream error:", err);
+        if (!res.headersSent) {
+          res.status(502).json({
+            error: "Error al obtener recurso desde Orthanc",
+            message: err.message,
+          });
+        }
+      });
     }
-    res.setHeader("Content-Length", buf.length);
-    return res.status(response.status).send(buf);
   } catch (err) {
     console.error("Orthanc proxy error:", err.message);
-    return res.status(502).json({
-      error: "Error al obtener recurso desde Orthanc",
-      message: err.message,
-    });
+    if (!res.headersSent) {
+      return res.status(502).json({
+        error: "Error al obtener recurso desde Orthanc",
+        message: err.message,
+      });
+    }
   }
 };
 
@@ -192,6 +228,9 @@ router.get(
   roleMiddleware(["ADMIN", "DOCTOR"]),
   async (req, res) => {
     try {
+      // Add cache headers
+      res.set("Cache-Control", "public, max-age=300"); // 5 minutes
+
       // Verificar conexión con Orthanc
       const isOrthancConnected = await checkOrthancConnection();
       if (!isOrthancConnected) {
@@ -232,6 +271,9 @@ router.get(
           error: "Se requiere el ID del estudio",
         });
       }
+
+      // Add cache headers
+      res.set("Cache-Control", "public, max-age=600"); // 10 minutes
 
       // Si es PACIENTE, verificar que el estudio le pertenezca
       if (req.user.role === "PATIENT") {
@@ -409,6 +451,9 @@ router.get(
         });
       }
 
+      // Add cache headers
+      res.set("Cache-Control", "public, max-age=300"); // 5 minutes
+
       // Obtener estudios del paciente desde la base de datos local
       const { prisma } = await import("../lib/prisma.js");
       const studies = await prisma.study.findMany({
@@ -431,37 +476,54 @@ router.get(
         },
       });
 
-      // Para cada estudio, obtener preview desde Orthanc
-      const studiesWithPreview = await Promise.all(
-        studies.map(async (study) => {
-          let previewUrl = null;
+      if (studies.length === 0) {
+        return res.json({
+          success: true,
+          data: [],
+        });
+      }
 
-          if (study.orthancId) {
-            try {
-              const details = await getStudyDetails(study.orthancId);
-              previewUrl = details.previewUrl;
-            } catch (error) {
-              console.error(
-                "Error getting preview for study:",
-                study.orthancId,
-                error,
-              );
-            }
+      // Batch all Orthanc requests to avoid N+1 problem
+      const orthancIds = studies
+        .filter((s) => s.orthancId)
+        .map((s) => s.orthancId);
+      const previewUrlMap = new Map();
+
+      if (orthancIds.length > 0) {
+        // Get all study details in parallel
+        const detailPromises = orthancIds.map(async (orthancId) => {
+          try {
+            const details = await getStudyDetails(orthancId);
+            return { orthancId, previewUrl: details.previewUrl };
+          } catch (error) {
+            console.error("Error getting preview for study:", orthancId, error);
+            return { orthancId, previewUrl: null };
           }
+        });
 
-          return {
-            id: study.id,
-            orthancId: study.orthancId,
-            patientName: study.patient.name,
-            patientDni: study.patient.dni,
-            doctorName: study.doctor.name,
-            studyDate: study.studyDate,
-            type: study.type,
-            previewUrl,
-            hasReport: study.reports && study.reports.length > 0,
-          };
-        }),
-      );
+        const results = await Promise.all(detailPromises);
+        results.forEach(({ orthancId, previewUrl }) => {
+          previewUrlMap.set(orthancId, previewUrl);
+        });
+      }
+
+      const studiesWithPreview = studies.map((study) => {
+        const previewUrl = study.orthancId
+          ? previewUrlMap.get(study.orthancId) || null
+          : null;
+
+        return {
+          id: study.id,
+          orthancId: study.orthancId,
+          patientName: study.patient.name,
+          patientDni: study.patient.dni,
+          doctorName: study.doctor.name,
+          studyDate: study.studyDate,
+          type: study.type,
+          previewUrl,
+          hasReport: study.reports && study.reports.length > 0,
+        };
+      });
 
       res.json({
         success: true,
