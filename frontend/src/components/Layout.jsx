@@ -107,7 +107,7 @@ const Layout = ({ children }) => {
                 🏥 Diagnóstico por Imágenes López
               </h3>
               <div className="space-y-3">
-                <p className="flex items-center text-sm text-gray-300">
+                <p className="flex items-center text-sm text-white">
                   <svg
                     className="w-4 h-4 mr-2"
                     fill="currentColor"
@@ -121,7 +121,7 @@ const Layout = ({ children }) => {
                   </svg>
                   Lobo de la Vega 301, Clinica del Pilar - Yerba Buena
                 </p>
-                <p className="flex items-center text-sm text-gray-300">
+                <p className="flex items-center text-sm text-white">
                   <svg
                     className="w-4 h-4 mr-2"
                     fill="currentColor"
@@ -129,9 +129,9 @@ const Layout = ({ children }) => {
                   >
                     <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
                   </svg>
-                  (381) XXXXXXX
+                  (+54) 381 6020324
                 </p>
-                <p className="flex items-center text-sm text-gray-300">
+                <p className="flex items-center text-sm text-white">
                   <svg
                     className="w-4 h-4 mr-2"
                     fill="currentColor"
@@ -220,7 +220,7 @@ const Layout = ({ children }) => {
                     <p className="text-sm font-medium text-white">
                       Pablo Ezequiel Harrod
                     </p>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-white">
                       Desarrollador Full Stack
                     </p>
                   </div>
