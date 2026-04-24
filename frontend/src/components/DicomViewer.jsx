@@ -8,6 +8,7 @@ import { backendOrigin, withOrthancProxyAuth } from "../utils/orthancUrl";
 
 const DicomViewer = ({
   studyId,
+  studyInstanceUid: studyInstanceUidProp = null,
   notes: studyNotes = "",
   userRole = "PATIENT",
   onClose,
@@ -32,32 +33,35 @@ const DicomViewer = ({
         setLoading(true);
         setError(null);
 
+        if (studyInstanceUidProp) {
+          const finalUrl = buildStoneUrl(studyInstanceUidProp);
+          if (!finalUrl) {
+            setError("Sesión no válida para cargar el visor.");
+            return;
+          }
+          setViewerUrl(finalUrl);
+          return;
+        }
+
         const response = await axios.get(`/api/unified`);
         const study = response.data.items.find(
           (item) => item.studyId === studyId,
         );
-
         if (!study) {
           setError("No se encontró el estudio.");
           return;
         }
-
-        // PRIORIDAD: Usamos StudyInstanceUID (puntos) para el visor
-        // Si no existe, usamos orthancId (guiones) como respaldo
         const identifier = study.studyInstanceUid || study.orthancId;
-
         if (!identifier) {
           setError("Este estudio no tiene identificadores DICOM válidos.");
           return;
         }
-
         const finalUrl = buildStoneUrl(identifier);
         if (!finalUrl) {
           setError("Sesión no válida para cargar el visor.");
           return;
         }
-
-        setOrthancId(study.orthancId); // Guardamos el de guiones para el texto de la UI
+        setOrthancId(study.orthancId);
         setViewerUrl(finalUrl);
         setStudyData(study);
       } catch (err) {
@@ -72,13 +76,10 @@ const DicomViewer = ({
   }, [studyId, token]);
 
   const refreshViewer = () => {
-    // Si tenemos los datos, regeneramos la URL usando el UID de puntos
-    if (studyData?.studyInstanceUid || orthancId) {
-      const id = studyData?.studyInstanceUid || orthancId;
+    const id = studyInstanceUidProp || studyData?.studyInstanceUid || orthancId;
+    if (id) {
       setViewerUrl(null);
-      setTimeout(() => {
-        setViewerUrl(buildStoneUrl(id));
-      }, 100);
+      setTimeout(() => setViewerUrl(buildStoneUrl(id)), 100);
     }
   };
 

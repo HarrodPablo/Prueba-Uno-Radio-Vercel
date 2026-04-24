@@ -1,5 +1,5 @@
 import axios from "axios";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Layout from "../components/Layout";
@@ -16,6 +16,7 @@ const OrthancImport = () => {
   const [completedStudies, setCompletedStudies] = useState([]);
   const [completedLoading, setCompletedLoading] = useState(false);
   const [existingPatients, setExistingPatients] = useState(new Set()); // Track existing patients by DNI:orthancId
+  const checkingPatientsRef = useRef(false);
 
   // Función para formatear fecha DICOM (YYYYMMDD)
   const formatDicomDate = (dateString) => {
@@ -134,10 +135,17 @@ const OrthancImport = () => {
 
   // Verificar pacientes existentes solo al cargar los estudios por primera vez
   useEffect(() => {
-    if (orthancStudies.length > 0 && existingPatients.size === 0) {
-      checkExistingPatients(orthancStudies);
+    if (
+      orthancStudies.length > 0 &&
+      existingPatients.size === 0 &&
+      !checkingPatientsRef.current
+    ) {
+      checkingPatientsRef.current = true;
+      checkExistingPatients(orthancStudies).finally(() => {
+        checkingPatientsRef.current = false;
+      });
     }
-  }, [orthancStudies, existingPatients.size]);
+  }, [orthancStudies]);
 
   // Función para filtrar y ordenar estudios
   const filteredStudies = orthancStudies
@@ -190,26 +198,43 @@ const OrthancImport = () => {
 
   // Función para verificar todos los pacientes existentes
   const checkExistingPatients = async (studies) => {
-    const existing = new Set();
+    // Deduplicar DNIs para no hacer requests repetidos
+    const uniqueDnis = [
+      ...new Set(
+        studies
+          .map((s) => s.PatientID || s.patientDni)
+          .filter((dni) => dni && dni !== "Sin ID" && !dni.startsWith("Sin")),
+      ),
+    ];
 
-    for (const study of studies) {
-      const patientDni = study.PatientID || study.patientDni;
-      if (!patientDni) continue;
+    if (uniqueDnis.length === 0) return;
 
-      try {
-        const response = await axios.get(
-          `/api/users?search=${encodeURIComponent(patientDni)}&limit=10&page=1`,
-        );
+    // Todos los requests en paralelo
+    const results = await Promise.allSettled(
+      uniqueDnis.map((dni) =>
+        axios
+          .get(`/api/users?search=${encodeURIComponent(dni)}&limit=1&page=1`)
+          .then((res) => ({
+            dni,
+            found: !!res.data?.users?.find((u) => u.dni === dni),
+          }))
+          .catch(() => ({ dni, found: false })),
+      ),
+    );
 
-        const found = response.data?.users?.find((u) => u.dni === patientDni);
-        if (found) {
-          const uniqueKey = `${patientDni}:${study.orthancId}`;
-          existing.add(uniqueKey);
-        }
-      } catch (error) {
-        console.error(`Error verificando paciente ${patientDni}:`, error);
+    const existing = new Set(existingPatients);
+    results.forEach((result) => {
+      if (result.status === "fulfilled" && result.value.found) {
+        const { dni } = result.value;
+        // Marcar todos los estudios que tienen este DNI
+        studies.forEach((study) => {
+          const studyDni = study.PatientID || study.patientDni;
+          if (studyDni === dni) {
+            existing.add(`${dni}:${study.orthancId}`);
+          }
+        });
       }
-    }
+    });
 
     setExistingPatients(existing);
   };
