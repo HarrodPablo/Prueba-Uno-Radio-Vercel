@@ -23,7 +23,15 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // ─── Middlewares globales ──────────────────────────────────────
-app.use(cors());
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "https://diagnostico-lopez.vercel.app"],
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+    maxAge: 86400, // 🔥 cachea preflight 24h
+  }),
+);
 
 // GZIP — comprime TODAS las respuestas automáticamente
 // Los WebP ya están comprimidos, pero comprime JSON, JS, etc.
