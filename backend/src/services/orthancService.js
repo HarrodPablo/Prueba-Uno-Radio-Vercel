@@ -2,6 +2,43 @@ import axios from "axios";
 
 const ORTHANC_URL = process.env.ORTHANC_URL;
 
+// In-memory cache with TTL
+const cache = new Map();
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function getCacheKey(prefix, ...args) {
+  return `${prefix}:${args.join(":")}`;
+}
+
+function getFromCache(key) {
+  const entry = cache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    cache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function setCache(key, data, ttl = CACHE_TTL_MS) {
+  cache.set(key, {
+    data,
+    expiresAt: Date.now() + ttl,
+  });
+}
+
+function clearCache(pattern = null) {
+  if (pattern) {
+    for (const key of cache.keys()) {
+      if (key.includes(pattern)) {
+        cache.delete(key);
+      }
+    }
+  } else {
+    cache.clear();
+  }
+}
+
 export const orthancApi = axios.create({
   baseURL: ORTHANC_URL,
   auth: {
@@ -17,63 +54,84 @@ export const ORTHANC_PROXY_PUBLIC_PREFIX = "/api/orthanc/pacs";
 // Obtener lista de estudios
 // ─────────────────────────────────────────────
 export const getStudies = async () => {
+  const cacheKey = getCacheKey("studies");
+  const cached = getFromCache(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   try {
     const response = await orthancApi.get("/studies");
+    const studyIds = response.data;
 
-    const studies = await Promise.all(
-      response.data.map(async (id) => {
-        const studyRes = await orthancApi.get(`/studies/${id}`);
-        const study = studyRes.data;
+    if (studyIds.length === 0) {
+      const empty = [];
+      setCache(cacheKey, empty);
+      return empty;
+    }
 
-        const seriesRes = await orthancApi.get(`/studies/${id}/series`);
-        const series = seriesRes.data;
-
-        let instancesCount = 0;
-        if (series.length > 0) {
-          const firstSeries = series[0];
-          const instancesRes = await orthancApi.get(
-            `/series/${firstSeries.ID}/instances`,
-          );
-          instancesCount = instancesRes.data.length;
-        }
-
-        return {
-          orthancId: study.ID,
-
-          // 🧠 DICOM REAL
-          PatientName: study.PatientMainDicomTags?.PatientName || "Sin nombre",
-
-          PatientID: study.PatientMainDicomTags?.PatientID || "Sin ID",
-
-          StudyDate: study.MainDicomTags?.StudyDate || "Sin fecha",
-
-          StudyTime: study.MainDicomTags?.StudyTime || "Sin hora",
-
-          StudyDescription:
-            study.MainDicomTags?.StudyDescription || "Sin descripción",
-
-          // ✅ PRIORIDAD CORRECTA
-          type:
-            study.MainDicomTags?.StudyDescription ||
-            study.MainDicomTags?.Modality ||
-            "Sin tipo",
-
-          // Frontend friendly
-          patientName: study.PatientMainDicomTags?.PatientName || "Sin nombre",
-
-          patientDni: study.PatientMainDicomTags?.PatientID || "Sin ID",
-
-          studyDate: study.MainDicomTags?.StudyDate || "Sin fecha",
-
-          studyTime: study.MainDicomTags?.StudyTime || "Sin hora",
-
-          Series: series.length,
-          seriesCount: series.length,
-          instancesCount,
-        };
-      }),
+    // Batch all requests to eliminate N+1 problem
+    const studyPromises = studyIds.map((id) =>
+      orthancApi.get(`/studies/${id}`),
+    );
+    const seriesPromises = studyIds.map((id) =>
+      orthancApi.get(`/studies/${id}/series`),
     );
 
+    const [studyResponses, seriesResponses] = await Promise.all([
+      Promise.all(studyPromises),
+      Promise.all(seriesPromises),
+    ]);
+
+    // Get instance counts for series that have them
+    const instancePromises = [];
+    const instanceMap = new Map();
+
+    seriesResponses.forEach((seriesRes, studyIndex) => {
+      const series = seriesRes.data;
+      if (series.length > 0) {
+        const firstSeries = series[0];
+        const promise = orthancApi
+          .get(`/series/${firstSeries.ID}/instances`)
+          .then((res) => {
+            instanceMap.set(studyIds[studyIndex], res.data.length);
+          });
+        instancePromises.push(promise);
+      } else {
+        instanceMap.set(studyIds[studyIndex], 0);
+      }
+    });
+
+    await Promise.all(instancePromises);
+
+    const studies = studyIds.map((id, index) => {
+      const study = studyResponses[index].data;
+      const series = seriesResponses[index].data;
+      const instancesCount = instanceMap.get(id) || 0;
+
+      return {
+        orthancId: study.ID,
+        PatientName: study.PatientMainDicomTags?.PatientName || "Sin nombre",
+        PatientID: study.PatientMainDicomTags?.PatientID || "Sin ID",
+        StudyDate: study.MainDicomTags?.StudyDate || "Sin fecha",
+        StudyTime: study.MainDicomTags?.StudyTime || "Sin hora",
+        StudyDescription:
+          study.MainDicomTags?.StudyDescription || "Sin descripción",
+        type:
+          study.MainDicomTags?.StudyDescription ||
+          study.MainDicomTags?.Modality ||
+          "Sin tipo",
+        patientName: study.PatientMainDicomTags?.PatientName || "Sin nombre",
+        patientDni: study.PatientMainDicomTags?.PatientID || "Sin ID",
+        studyDate: study.MainDicomTags?.StudyDate || "Sin fecha",
+        studyTime: study.MainDicomTags?.StudyTime || "Sin hora",
+        Series: series.length,
+        seriesCount: series.length,
+        instancesCount,
+      };
+    });
+
+    setCache(cacheKey, studies);
     return studies;
   } catch (error) {
     console.error(
@@ -88,9 +146,18 @@ export const getStudies = async () => {
 // Obtener detalles
 // ─────────────────────────────────────────────
 export const getStudyDetails = async (orthancId) => {
+  const cacheKey = getCacheKey("study", orthancId);
+  const cached = getFromCache(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
   try {
-    const studyRes = await orthancApi.get(`/studies/${orthancId}`);
-    const seriesRes = await orthancApi.get(`/studies/${orthancId}/series`);
+    // Parallel requests for study and series
+    const [studyRes, seriesRes] = await Promise.all([
+      orthancApi.get(`/studies/${orthancId}`),
+      orthancApi.get(`/studies/${orthancId}/series`),
+    ]);
 
     const study = studyRes.data;
     const series = seriesRes.data;
@@ -100,11 +167,9 @@ export const getStudyDetails = async (orthancId) => {
 
     if (series.length > 0) {
       const firstSeries = series[0];
-
       const instancesRes = await orthancApi.get(
         `/series/${firstSeries.ID}/instances`,
       );
-
       const instances = instancesRes.data;
       instancesCount = instances.length;
 
@@ -113,32 +178,26 @@ export const getStudyDetails = async (orthancId) => {
       }
     }
 
-    return {
+    const result = {
       orthancId: study.ID,
-
-      // 🧠 DICOM REAL (COMPLETO)
       patientName: study.PatientMainDicomTags?.PatientName || "Sin nombre",
-
       patientDni: study.PatientMainDicomTags?.PatientID || "Sin ID",
-
       studyDate: study.MainDicomTags?.StudyDate || "Sin fecha",
-
       studyInstanceUid: study.MainDicomTags?.StudyInstanceUID || study.ID,
-
-      // ✅ PRIORIDAD CORRECTA
       type:
         study.MainDicomTags?.StudyDescription ||
         study.MainDicomTags?.Modality ||
         "Sin tipo",
-
       StudyDescription:
         study.MainDicomTags?.StudyDescription || "Sin descripción",
-
       previewUrl,
       seriesCount: series.length,
       instancesCount,
       series,
     };
+
+    setCache(cacheKey, result);
+    return result;
   } catch (error) {
     console.error(
       "Error fetching study details:",
