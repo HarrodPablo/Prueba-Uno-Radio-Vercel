@@ -22,6 +22,10 @@ model User {
   studiesAsDoctor  Study[]  @relation("DoctorStudies")
   reports          Report[]
 
+  // ✅ Índices reales útiles
+  @@index([role])
+  @@index([createdAt])
+
   @@map("users")
 }
 
@@ -29,16 +33,16 @@ model Study {
   id               String   @id @default(cuid())
   patientId        String
   doctorId         String
-  orthancId        String? // ID del estudio en Orthanc PACS
+  orthancId        String?
   type             String
-  StudyDescription  String? // Descripción del estudio desde Orthanc DICOM
-  imageUrl         String? // Ruta relativa al WebP: uploads/radiografias/xxx.webp
-  originalFilename String? // Nombre original del archivo Agfa
-  imageWidth       Int? // Ancho en pixels (del original Agfa)
-  imageHeight      Int? // Alto en pixels (del original Agfa)
-  studyInstanceUid String? // UID de instancia DICOM desde Orthanc
+  StudyDescription String?
+  imageUrl         String?
+  originalFilename String?
+  imageWidth       Int?
+  imageHeight      Int?
+  studyInstanceUid String?
   notes            String?
-  status           StudyStatus @default(PENDING) // Estado del estudio: PENDING, IMPORTED, COMPLETED
+  status           StudyStatus @default(PENDING)
   date             DateTime @default(now())
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -46,6 +50,17 @@ model Study {
   patient User     @relation("PatientStudies", fields: [patientId], references: [id], onDelete: Cascade)
   doctor  User     @relation("DoctorStudies", fields: [doctorId], references: [id])
   reports Report[]
+
+  // ✅ Índices importantes
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([status])
+  @@index([orthancId])
+
+  // 🔥 los que realmente impactan
+  @@index([patientId, date])
+  @@index([doctorId, date])
+  @@index([status, date])
 
   @@map("studies")
 }
@@ -61,6 +76,10 @@ model Report {
   study  Study @relation(fields: [studyId], references: [id], onDelete: Cascade)
   doctor User  @relation(fields: [doctorId], references: [id])
 
+  // ✅ Índices útiles
+  @@index([doctorId])
+  @@index([createdAt])
+
   @@map("reports")
 }
 
@@ -71,7 +90,7 @@ enum UserRole {
 }
 
 enum StudyStatus {
-  PENDING    // Pendiente de importar desde Orthanc
-  IMPORTED   // Importado pero no completado
-  COMPLETED  // Completado y listo
+  PENDING
+  IMPORTED
+  COMPLETED
 }
