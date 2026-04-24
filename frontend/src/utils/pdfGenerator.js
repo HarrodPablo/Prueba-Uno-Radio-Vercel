@@ -254,7 +254,7 @@ export const generatePDF = (report, study) => {
             </div>
             <div class="text-right text-[9px] text-outline">
               <p>Lobo de la Vega 301, Clinica del Pilar </p>
-              <p>+54 xxxxxxxxxx | diagnosticolopez2026@gmail.com </p>
+              <p>+54 3816020324 | diagnosticolopez2026@gmail.com </p>
             </div>
           </div>
         </footer>
