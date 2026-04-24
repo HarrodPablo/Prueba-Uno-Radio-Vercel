@@ -15,7 +15,7 @@ const router = express.Router();
 const ORTHANC_BASE = (process.env.ORTHANC_URL || "").replace(/\/+$/, "");
 
 async function orthancPatientGate(req, res, next) {
-  if (req.user.role !== "PATIENT") return next();
+  if (req.user.role !== "PATIENT" || req.user.role === "STATIC") return next();
   try {
     const ok = await patientCanAccessOrthancPath(req);
     if (!ok) {
@@ -29,9 +29,14 @@ async function orthancPatientGate(req, res, next) {
 
 function rewriteOrthancHtml(html, token, orthancPath = "/") {
   const PRE = "/api/orthanc/pacs";
+  const STATIC_ASSET_RE =
+    /\.(js|mjs|css|png|jpg|jpeg|gif|svg|webp|ico|woff2?|ttf|eot|map|wasm)(\?|$)/i;
+
   if (!html || typeof html !== "string") return html;
   const appendToken = (fullPath) => {
-    if (!token || fullPath.includes("token=")) return fullPath;
+    if (!token) return fullPath;
+    if (fullPath.includes("token=")) return fullPath;
+    if (STATIC_ASSET_RE.test(fullPath.split("?")[0])) return fullPath;
     const sep = fullPath.includes("?") ? "&" : "?";
     return `${fullPath}${sep}token=${encodeURIComponent(token)}`;
   };
@@ -143,11 +148,47 @@ const pacsProxyHandler = async (req, res) => {
       validateStatus: () => true,
       headers: {
         Accept: req.headers.accept || "*/*",
+        ...(req.headers["if-none-match"] && {
+          "If-None-Match": req.headers["if-none-match"],
+        }),
+        ...(req.headers["if-modified-since"] && {
+          "If-Modified-Since": req.headers["if-modified-since"],
+        }),
       },
     });
 
+    // Handle 304 Not Modified responses immediately
+    if (response.status === 304) {
+      if (response.headers["etag"])
+        res.setHeader("ETag", response.headers["etag"]);
+      return res.status(304).end();
+    }
+
     // Copy essential headers
     const ct = response.headers["content-type"] || "";
+    const STATIC_ASSET_RE =
+      /\.(js|mjs|css|png|jpg|jpeg|gif|svg|webp|ico|woff2?|ttf|eot|map|wasm)(\?|$)/i;
+
+    // Set cache headers based on content type
+    if (STATIC_ASSET_RE.test(orthancPath)) {
+      // Assets del Stone Viewer: cache agresivo (no cambian entre versiones)
+      res.setHeader("Cache-Control", "public, max-age=86400, immutable");
+    } else if (ct.toLowerCase().includes("text/html")) {
+      res.setHeader("Cache-Control", "no-store");
+    } else if (
+      orthancPath.includes("/instances/") &&
+      orthancPath.includes("/preview")
+    ) {
+      // Previews DICOM: cache 1 hora
+      res.setHeader("Cache-Control", "public, max-age=3600");
+    } else if (
+      orthancPath.includes("/dicom-web/") ||
+      orthancPath.includes("/instances/")
+    ) {
+      // Datos DICOM: no cachear en proxy, Orthanc los tiene
+      res.setHeader("Cache-Control", "no-store");
+    }
+
     if (response.headers["content-disposition"]) {
       res.setHeader(
         "Content-Disposition",
@@ -166,6 +207,17 @@ const pacsProxyHandler = async (req, res) => {
 
     // Handle HTML content specially for token rewriting
     if (ct.toLowerCase().includes("text/html")) {
+      // Setear cookie para autenticar assets estáticos
+      if (tokenQs) {
+        res.cookie("orthanc_proxy_jwt", tokenQs, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === "production",
+          sameSite: "strict",
+          maxAge: 3600 * 1000, // 1 hora
+          path: "/api/orthanc/pacs",
+        });
+      }
+
       // For HTML, we need to buffer to rewrite URLs
       const chunks = [];
       response.data.on("data", (chunk) => chunks.push(chunk));
@@ -189,6 +241,7 @@ const pacsProxyHandler = async (req, res) => {
       if (ct) {
         res.setHeader("Content-Type", ct.split(";")[0].trim());
       }
+
       res.status(response.status);
       response.data.pipe(res);
 
@@ -216,7 +269,11 @@ const pacsProxyHandler = async (req, res) => {
 router.use(
   "/pacs",
   orthancProxyAuth,
-  roleMiddleware(["ADMIN", "DOCTOR", "PATIENT"]),
+  (req, res, next) => {
+    // Assets estáticos del Stone Viewer bypasean roleMiddleware
+    if (req.user?.role === "STATIC") return next();
+    return roleMiddleware(["ADMIN", "DOCTOR", "PATIENT"])(req, res, next);
+  },
   orthancPatientGate,
   pacsProxyHandler,
 );

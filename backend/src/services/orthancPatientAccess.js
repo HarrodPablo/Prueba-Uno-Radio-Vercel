@@ -1,6 +1,40 @@
 import { prisma } from "../lib/prisma.js";
 import { orthancApi } from "./orthancService.js";
 
+// ─── Auth result cache ──────────────────────────────────────────────
+const authCache = new Map();
+const AUTH_CACHE_TTL = 10 * 60 * 1000;
+
+function getCachedAuth(userId, path) {
+  const key = `${userId}:${path}`;
+  const entry = authCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    authCache.delete(key);
+    return null;
+  }
+  return entry.result;
+}
+
+function setCachedAuth(userId, path, result) {
+  authCache.set(`${userId}:${path}`, {
+    result,
+    expiresAt: Date.now() + AUTH_CACHE_TTL,
+  });
+}
+
+// Limpiar entradas expiradas cada 5 minutos
+setInterval(
+  () => {
+    const now = Date.now();
+    for (const [key, entry] of authCache.entries()) {
+      if (now > entry.expiresAt) authCache.delete(key);
+    }
+  },
+  5 * 60 * 1000,
+);
+// ────────────────────────────────────────────────────────────────────
+
 const STATIC_EXT =
   /\.(js|mjs|cjs|css|map|json|wasm|png|jpg|jpeg|gif|svg|webp|ico|woff2?|ttf|eot)$/i;
 
@@ -15,7 +49,7 @@ function isStoneViewerStatic(orthancPath) {
  */
 export async function patientCanAccessOrthancPath(req) {
   const { user } = req;
-  if (!user || user.role !== "PATIENT") return true;
+  if (!user || user.role !== "PATIENT" || user.role === "STATIC") return true;
 
   const raw = req.originalUrl || req.url || "";
   const u = new URL(raw, "http://internal");
@@ -26,14 +60,24 @@ export async function patientCanAccessOrthancPath(req) {
   }
   if (!pathname.startsWith("/")) pathname = `/${pathname}`;
 
-  if (isStoneViewerStatic(pathname)) return true;
+  const cacheablePath = pathname.split("?")[0];
+  const cached = getCachedAuth(user.id, cacheablePath);
+  if (cached !== null) return cached;
+
+  if (isStoneViewerStatic(pathname)) {
+    setCachedAuth(user.id, cacheablePath, true);
+    return true;
+  }
 
   const studyParam = u.searchParams.get("study");
   const studyUidFromDicomWeb =
     u.searchParams.get("0020000D") || u.searchParams.get("StudyInstanceUID");
 
   // Allow minimal readonly system endpoint needed by Stone viewer
-  if (pathname === "/system") return true;
+  if (pathname === "/system") {
+    setCachedAuth(user.id, cacheablePath, true);
+    return true;
+  }
 
   if (
     pathname.includes("stone-webviewer") &&
@@ -46,7 +90,9 @@ export async function patientCanAccessOrthancPath(req) {
         OR: [{ studyInstanceUid: studyParam }, { orthancId: studyParam }],
       },
     });
-    return !!study;
+    const result = !!study;
+    setCachedAuth(user.id, cacheablePath, result);
+    return result;
   }
 
   // DICOMweb endpoints used by Stone viewer: authorize by StudyInstanceUID (0020000D)
@@ -60,7 +106,11 @@ export async function patientCanAccessOrthancPath(req) {
         : null;
 
     const uid = studyUidFromDicomWeb || studyUidFromPath;
-    if (!uid) return false;
+    if (!uid) {
+      const result = false;
+      setCachedAuth(user.id, cacheablePath, result);
+      return result;
+    }
     const study = await prisma.study.findFirst({
       where: {
         patientId: user.id,
@@ -68,26 +118,38 @@ export async function patientCanAccessOrthancPath(req) {
       },
       select: { id: true },
     });
-    return !!study;
+    const result = !!study;
+    setCachedAuth(user.id, cacheablePath, result);
+    return result;
   }
 
   const parts = pathname.split("/").filter(Boolean);
 
   if (parts[0] === "instances" && parts[1]) {
-    return patientOwnsInstance(user.id, parts[1]);
+    const result = await patientOwnsInstance(user.id, parts[1]);
+    setCachedAuth(user.id, cacheablePath, result);
+    return result;
   }
   if (parts[0] === "series" && parts[1]) {
-    return patientOwnsSeries(user.id, parts[1]);
+    const result = await patientOwnsSeries(user.id, parts[1]);
+    setCachedAuth(user.id, cacheablePath, result);
+    return result;
   }
   if (parts[0] === "studies" && parts[1]) {
-    return patientOwnsStudyOrthancId(user.id, parts[1]);
+    const result = await patientOwnsStudyOrthancId(user.id, parts[1]);
+    setCachedAuth(user.id, cacheablePath, result);
+    return result;
   }
 
   if (pathname.includes("/stone-webviewer/") && !STATIC_EXT.test(pathname)) {
-    return !!studyParam;
+    const result = !!studyParam;
+    setCachedAuth(user.id, cacheablePath, result);
+    return result;
   }
 
-  return false;
+  const result = false;
+  setCachedAuth(user.id, cacheablePath, result);
+  return result;
 }
 
 async function patientOwnsStudyOrthancId(patientId, orthancStudyId) {

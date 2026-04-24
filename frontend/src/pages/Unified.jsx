@@ -495,7 +495,7 @@ const Unified = () => {
                         <td className="px-6 py-4 text-sm whitespace-nowrap">
                           <div>
                             <div className="font-medium text-gray-900">
-                              {item.patientName }
+                              {item.patientName}
                             </div>
                             <div className="text-xs text-gray-500">
                               DNI: {item.patientDni}
@@ -519,9 +519,8 @@ const Unified = () => {
                         </td>
                         <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
                           {item.StudyDescription || item.studyType}
-                          
                         </td>
-                        
+
                         <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
                           {item.doctorName}
                         </td>
@@ -812,6 +811,7 @@ const Unified = () => {
         {showImageViewer && selectedStudy && (
           <DicomViewer
             studyId={selectedStudy.studyId}
+            studyInstanceUid={selectedStudy.studyInstanceUid}
             studyType={selectedStudy.studyType}
             notes={selectedStudy.notes}
             userRole={user?.role}
