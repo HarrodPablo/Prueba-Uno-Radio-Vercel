@@ -1,60 +1,94 @@
 import axios from "axios";
+
 import { useCallback, useEffect, useRef, useState } from "react";
+
 import { toast, ToastContainer } from "react-toastify";
+
 import "react-toastify/dist/ReactToastify.css";
+
 import Layout from "../components/Layout";
+
 import { useAuth } from "../context/AuthContext";
+
 import { backendOrigin, withOrthancProxyAuth } from "../utils/orthancUrl";
 
 const Users = () => {
   const { token } = useAuth();
+
   const [users, setUsers] = useState([]);
+
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState(null);
+
   const [showCreateModal, setShowCreateModal] = useState(false);
+
   const [editingUser, setEditingUser] = useState(null);
+
   const [formData, setFormData] = useState({
     dni: "",
+
     name: "",
+
     phone: "",
+
     email: "",
+
     role: "PATIENT",
+
     password: "",
   });
+
   const [filters, setFilters] = useState({
     page: 1,
+
     limit: 10,
+
     search: "",
+
     role: "",
   });
+
   const [pagination, setPagination] = useState(null);
 
   // Estados para Orthanc
+
   const [orthancStudies, setOrthancStudies] = useState([]);
+
   const [orthancLoading, setOrthancLoading] = useState(false);
+
   const [orthancError, setOrthancError] = useState(null);
+
   const [showOrthancModal, setShowOrthancModal] = useState(false);
+
   const [orthancSearchTerm, setOrthancSearchTerm] = useState("");
+
   const [expandedStudies, setExpandedStudies] = useState(new Set());
 
   // Ref para el input de búsqueda
+
   const searchInputRef = useRef(null);
 
   const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
+
       setError(null);
 
       const params = new URLSearchParams();
+
       Object.entries(filters).forEach(([key, value]) => {
         if (value) params.append(key, value);
       });
 
       const response = await axios.get(`/api/users?${params}`);
+
       setUsers(response.data.users);
+
       setPagination(response.data.pagination);
     } catch (err) {
       setError("Error al cargar los usuarios");
+
       console.error("Error fetching users:", err);
     } finally {
       setLoading(false);
@@ -64,12 +98,15 @@ const Users = () => {
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({
       ...prev,
+
       [key]: value,
+
       page: key === "page" ? value : 1,
     }));
   };
 
   // Debounce mejorado para búsqueda
+
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
       fetchUsers();
@@ -85,53 +122,83 @@ const Users = () => {
       const response = await axios.post("/api/users", formData);
 
       // Limpiar formulario
+
       setFormData({
         dni: "",
+
         name: "",
+
         phone: "",
+
         email: "",
+
         role: "PATIENT",
+
         password: "",
       });
 
       // Mostrar mensaje de éxito con toast primero
+
       toast.success(
         `✅ Usuario "${response.data.name}" creado exitosamente con DNI: ${response.data.dni}`,
+
         {
           autoClose: 15000, // 15 segundos
+
           hideProgressBar: false,
+
           closeOnClick: false, // No cerrar al hacer clic
+
           pauseOnHover: true,
+
           draggable: true,
+
           position: "top-right", // Esquina superior derecha
+
           style: {
             background: "linear-gradient(to right, #00b09b, #96c93d)",
+
             fontSize: "16px",
+
             fontWeight: "bold",
+
             padding: "16px",
           },
         },
       );
 
       // Cerrar modal
+
       setShowCreateModal(false);
+
       setEditingUser(null);
 
       // Refrescar lista de usuarios
+
       fetchUsers();
     } catch (error) {
       console.error("Error creating user:", error);
+
       toast.error("Error al crear usuario", {
         autoClose: 5000,
+
         hideProgressBar: false,
+
         closeOnClick: true,
+
         pauseOnHover: true,
+
         draggable: true,
+
         position: "top-right",
+
         style: {
           background: "linear-gradient(to right, #ff416c, #ff4b2b)",
+
           fontSize: "14px",
+
           fontWeight: "bold",
+
           padding: "12px",
         },
       });
@@ -139,34 +206,47 @@ const Users = () => {
   };
 
   // Función para formatear fecha DICOM (YYYYMMDD)
+
   const formatDicomDate = (dateString) => {
     if (!dateString || dateString === "Sin fecha") return "N/A";
 
     // Formato DICOM: YYYYMMDD
+
     if (dateString.length === 8) {
       const year = dateString.substring(0, 4);
+
       const month = dateString.substring(4, 6);
+
       const day = dateString.substring(6, 8);
+
       const date = new Date(`${year}-${month}-${day}`);
+
       return date.toLocaleDateString("es-AR", {
         day: "2-digit",
+
         month: "2-digit",
+
         year: "numeric",
       });
     }
 
     // Fallback para otros formatos
+
     return dateString;
   };
 
   // Función para formatear hora DICOM (HHMMSS)
+
   const formatDicomTime = (timeString) => {
     if (!timeString || timeString === "Sin hora") return "N/A";
 
     // Formato DICOM: HHMMSS o HHMM
+
     if (timeString.length >= 4) {
       const hours = timeString.substring(0, 2);
+
       const minutes = timeString.substring(2, 4);
+
       const seconds =
         timeString.length >= 6 ? timeString.substring(4, 6) : "00";
 
@@ -177,18 +257,23 @@ const Users = () => {
   };
 
   // Función para formatear nombre DICOM (apellido^nombre)
+
   const formatDicomName = (nameString) => {
     if (!nameString || nameString === "Sin nombre") return "N/A";
 
     // Formato DICOM: apellido^nombre o apellido^nombre^segundoNombre^titulo
+
     const parts = nameString.split("^");
 
     if (parts.length >= 2) {
       const lastName = parts[0] || "";
+
       const firstName = parts[1] || "";
 
       // Limpiar espacios y formatear
+
       const cleanLastName = lastName.trim();
+
       const cleanFirstName = firstName.trim();
 
       if (cleanLastName && cleanFirstName) {
@@ -201,87 +286,127 @@ const Users = () => {
     }
 
     // Fallback: si no tiene el formato esperado, devolver como está
+
     return nameString;
   };
 
   // Función para filtrar estudios de Orthanc
+
   const filteredOrthancStudies = orthancStudies.filter((study) => {
     const searchLower = orthancSearchTerm.toLowerCase();
+
     return (
       (study.PatientName || study.patientName)
+
         ?.toLowerCase()
+
         .includes(searchLower) ||
       study.orthancId?.toLowerCase().includes(searchLower) ||
       (study.StudyDate || study.studyDate)
+
         ?.toLowerCase()
+
         .includes(searchLower) ||
       (study.StudyDescription || study.type)
+
         ?.toLowerCase()
+
         .includes(searchLower)
     );
   });
 
   // Función para toggle del menú hamburguesa
+
   const toggleStudyExpansion = (studyId) => {
     const newExpanded = new Set(expandedStudies);
+
     if (newExpanded.has(studyId)) {
       newExpanded.delete(studyId);
     } else {
       newExpanded.add(studyId);
     }
+
     setExpandedStudies(newExpanded);
   };
 
   const handleImportFromOrthanc = async (orthancStudy) => {
     try {
       // Crear paciente con datos del DICOM
+
       const patientResponse = await axios.post("/api/users", {
         name: orthancStudy.patientName || "Paciente Orthanc",
+
         dni: orthancStudy.patientId || "AUTO-" + Date.now(),
+
         phone: "",
+
         email: "",
+
         role: "PATIENT",
+
         password: "temp123", // Contraseña temporal
       });
 
       const newPatientId = patientResponse.data.id;
 
       // Asignar estudio al paciente creado
+
       await axios.post("/api/orthanc/assign", {
         patientId: newPatientId,
+
         orthancId: orthancStudy.orthancId,
       });
 
       toast.success("Paciente creado y estudio asignado correctamente", {
         autoClose: 3000,
+
         hideProgressBar: false,
+
         closeOnClick: false,
+
         pauseOnHover: true,
+
         draggable: true,
+
         position: "top-right",
+
         style: {
           background: "linear-gradient(to right, #00b09b, #96c93d)",
+
           fontSize: "16px",
+
           fontWeight: "bold",
+
           padding: "16px",
         },
       });
 
       setShowOrthancModal(false);
+
       fetchUsers(); // Refrescar lista de usuarios
     } catch (err) {
       console.error("Error importing from Orthanc:", err);
+
       toast.error("Error al importar paciente desde Orthanc", {
         autoClose: 5000,
+
         hideProgressBar: false,
+
         closeOnClick: true,
+
         pauseOnHover: true,
+
         draggable: true,
+
         position: "top-right",
+
         style: {
           background: "linear-gradient(to right, #ff416c, #ff4b2b)",
+
           fontSize: "14px",
+
           fontWeight: "bold",
+
           padding: "12px",
         },
       });
@@ -290,48 +415,72 @@ const Users = () => {
 
   const handleEditUser = async (e) => {
     e.preventDefault();
+
     try {
       // Si la contraseña está vacía, no la enviamos para mantener la actual
+
       const dataToSend = { ...formData };
+
       if (!dataToSend.password || dataToSend.password.trim() === "") {
         delete dataToSend.password;
       }
 
       await axios.put(`/api/users/${editingUser.id}`, dataToSend);
+
       setEditingUser(null);
+
       setFormData({
         dni: "",
+
         name: "",
+
         phone: "",
+
         email: "",
+
         role: "PATIENT",
+
         password: "",
       });
+
       fetchUsers();
 
       // Mostrar mensaje de éxito con toast
+
       const passwordChanged = dataToSend.password
         ? " y contraseña actualizada"
         : "";
+
       toast.success(
         `✅ Usuario "${formData.name}" actualizado exitosamente${passwordChanged}`,
+
         {
           position: "top-right",
+
           autoClose: 5000,
+
           hideProgressBar: false,
+
           closeOnClick: true,
+
           pauseOnHover: true,
+
           draggable: true,
+
           progress: undefined,
+
           theme: "colored",
         },
       );
     } catch (err) {
       toast.error("❌ Error al actualizar usuario. Intenta nuevamente.", {
         position: "top-right",
+
         autoClose: 5000,
+
         theme: "colored",
       });
+
       console.error("Error updating user:", err);
     }
   };
@@ -340,25 +489,37 @@ const Users = () => {
     if (window.confirm("¿Está seguro de eliminar este usuario?")) {
       try {
         await axios.delete(`/api/users/${userId}`);
+
         fetchUsers();
 
         // Mostrar mensaje de éxito con toast
+
         toast.success("✅ Usuario eliminado exitosamente", {
           position: "top-right",
+
           autoClose: 5000,
+
           hideProgressBar: false,
+
           closeOnClick: true,
+
           pauseOnHover: true,
+
           draggable: true,
+
           progress: undefined,
+
           theme: "colored",
         });
       } catch (err) {
         toast.error("❌ Error al eliminar usuario. Intenta nuevamente.", {
           position: "top-right",
+
           autoClose: 5000,
+
           theme: "colored",
         });
+
         console.error("Error deleting user:", err);
       }
     }
@@ -366,20 +527,28 @@ const Users = () => {
 
   const openEditModal = (user) => {
     setEditingUser(user);
+
     setFormData({
       dni: user.dni,
+
       name: user.name,
+
       phone: user.phone,
+
       email: user.email,
+
       role: user.role,
+
       password: "",
     });
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+
     setFormData((prev) => ({
       ...prev,
+
       [name]: value,
     }));
   };
@@ -407,15 +576,13 @@ const Users = () => {
   return (
     <Layout>
       <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
-        <div
-          className="w-full mx-auto max-w-7xl"
-          style={{ minWidth: "1280px" }}
-        >
+        <div className="w-full mx-auto max-w-7xl">
           <div className="mb-6">
             <div className="flex flex-col gap-4 mb-4 sm:flex-row sm:items-center sm:justify-between">
               <h1 className="text-xl font-bold text-gray-900 sm:text-2xl">
                 Gestión de Usuarios
               </h1>
+
               <div className="flex flex-col gap-2 sm:flex-row sm:gap-2 sm:w-auto">
                 <button
                   onClick={() => setShowCreateModal(true)}
@@ -432,6 +599,7 @@ const Users = () => {
                   <label className="block mb-1 text-sm font-medium text-gray-900">
                     🔍Buscar
                   </label>
+
                   <input
                     ref={searchInputRef}
                     type="text"
@@ -448,14 +616,18 @@ const Users = () => {
                   <label className="block mb-1 text-sm font-medium text-gray-900">
                     🏷️ Rol
                   </label>
+
                   <select
                     value={filters.role}
                     onChange={(e) => handleFilterChange("role", e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="">Todos</option>
+
                     <option value="ADMIN">Administrador</option>
+
                     <option value="DOCTOR">Doctor</option>
+
                     <option value="PATIENT">Paciente</option>
                   </select>
                 </div>
@@ -475,6 +647,7 @@ const Users = () => {
 
             <div className="overflow-hidden bg-white rounded-lg shadow">
               {/* Versión Desktop - Tabla */}
+
               <div className="hidden overflow-x-auto lg:block">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-quinty">
@@ -482,38 +655,48 @@ const Users = () => {
                       <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
                         💳 DNI
                       </th>
+
                       <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
                         👤 Nombre
                       </th>
+
                       <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
                         📩 Email
                       </th>
+
                       <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
                         📞Teléfono
                       </th>
+
                       <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
                         🏷️ Rol
                       </th>
+
                       <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
                         ⚡ Acciones
                       </th>
                     </tr>
                   </thead>
+
                   <tbody className="bg-white divide-y divide-gray-200">
                     {users.map((user) => (
                       <tr key={user.id} className="hover:bg-primaryB">
                         <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
                           {user.dni}
                         </td>
+
                         <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
                           {user.name}
                         </td>
+
                         <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
                           {user.email || "No registrado"}
                         </td>
+
                         <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
                           {user.phone}
                         </td>
+
                         <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
                           <span
                             className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
@@ -531,6 +714,7 @@ const Users = () => {
                                 : "Paciente"}
                           </span>
                         </td>
+
                         <td className="px-6 py-4 text-sm font-medium text-center whitespace-nowrap">
                           <button
                             onClick={() => openEditModal(user)}
@@ -538,6 +722,7 @@ const Users = () => {
                           >
                             Editar
                           </button>
+
                           <button
                             onClick={() => handleDeleteUser(user.id)}
                             className="text-red-600 hover:text-red-900"
@@ -552,63 +737,102 @@ const Users = () => {
               </div>
 
               {/* Versión Mobile - Cards */}
+
               <div className="lg:hidden">
                 <div className="divide-y divide-gray-200">
                   {users.map((user) => (
-                    <div key={user.id} className="p-4 hover:bg-gray-50">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <h3 className="text-lg font-medium text-gray-900">
-                            {user.name}
-                          </h3>
-                          <div className="mt-1 space-y-1">
-                            <p className="text-sm text-gray-600">
-                              <span className="font-medium">💳 DNI:</span>{" "}
-                              {user.dni}
-                            </p>
-                            <p className="text-sm text-gray-600">
-                              <span className="font-medium">📞 Teléfono:</span>{" "}
-                              {user.phone}
-                            </p>
-                            {user.email && (
+                    <div
+                      key={`mobile-${user.id}`}
+                      className="w-full p-4 pb-6 hover:bg-gray-50"
+                    >
+                      <div className="flex flex-col w-full">
+                        <div className="flex items-start justify-between w-full mb-3">
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-lg font-medium text-gray-900 truncate">
+                              {user.name}
+                            </h3>
+
+                            <div className="mt-1 space-y-1">
                               <p className="text-sm text-gray-600">
-                                <span className="font-medium">📩 Email:</span>{" "}
-                                {user.email}
+                                <span className="font-medium">💳 DNI:</span>{" "}
+                                <span className="font-mono text-xs">
+                                  {user.dni || "N/A"}
+                                </span>
                               </p>
-                            )}
+
+                              <p className="text-sm text-gray-600">
+                                <span className="font-medium">
+                                  📞 Teléfono:
+                                </span>{" "}
+                                <span className="break-all">
+                                  {user.phone || "N/A"}
+                                </span>
+                              </p>
+
+                              {user.email && (
+                                <p className="text-sm text-gray-600">
+                                  <span className="font-medium">📩 Email:</span>{" "}
+                                  <span className="break-all">
+                                    {user.email}
+                                  </span>
+                                </p>
+                              )}
+
+                              <p className="text-sm text-gray-600">
+                                <span className="font-medium">🏷️ Rol:</span>{" "}
+                                <span
+                                  className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                    user.role === "ADMIN"
+                                      ? "bg-purple-100 text-purple-800"
+                                      : user.role === "DOCTOR"
+                                        ? "bg-blue-100 text-blue-800"
+                                        : "bg-green-100 text-green-800"
+                                  }`}
+                                >
+                                  {user.role === "ADMIN"
+                                    ? "Administrador"
+                                    : user.role === "DOCTOR"
+                                      ? "Doctor"
+                                      : "Paciente"}
+                                </span>
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex-shrink-0 ml-4">
+                            <div className="flex items-center justify-center w-16 h-16 text-gray-400 bg-gray-100 rounded-lg">
+                              <svg
+                                className="w-8 h-8"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                                />
+                              </svg>
+                            </div>
                           </div>
                         </div>
-                        <div className="ml-4">
-                          <span
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              user.role === "ADMIN"
-                                ? "bg-purple-100 text-purple-800"
-                                : user.role === "DOCTOR"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : "bg-green-100 text-green-800"
-                            }`}
+
+                        <div className="flex flex-col w-full pt-3 space-y-2 border-t border-gray-100 sm:flex-row sm:space-y-0 sm:space-x-3">
+                          <button
+                            onClick={() => openEditModal(user)}
+                            className="w-full px-3 py-2 text-sm font-medium text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50 sm:w-auto sm:flex-1"
                           >
-                            {user.role === "ADMIN"
-                              ? "Administrador"
-                              : user.role === "DOCTOR"
-                                ? "Doctor"
-                                : "Paciente"}
-                          </span>
+                            ✏️ Editar
+                          </button>
+
+                          <button
+                            onClick={() => handleDeleteUser(user.id)}
+                            className="w-full px-3 py-2 text-sm font-medium text-red-600 border border-red-600 rounded-md hover:bg-red-50 sm:w-auto sm:flex-1"
+                          >
+                            🗑️ Eliminar
+                          </button>
                         </div>
-                      </div>
-                      <div className="flex pt-3 space-x-3 border-t border-gray-100">
-                        <button
-                          onClick={() => openEditModal(user)}
-                          className="flex-1 px-3 py-2 text-sm font-medium text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50"
-                        >
-                          ✏️ Editar
-                        </button>
-                        <button
-                          onClick={() => handleDeleteUser(user.id)}
-                          className="flex-1 px-3 py-2 text-sm font-medium text-red-600 border border-red-600 rounded-md hover:bg-red-50"
-                        >
-                          🗑️ Eliminar
-                        </button>
                       </div>
                     </div>
                   ))}
@@ -637,6 +861,7 @@ const Users = () => {
                     onClick={() =>
                       handleFilterChange(
                         "page",
+
                         Math.min(pagination.pages, filters.page + 1),
                       )
                     }
@@ -652,6 +877,7 @@ const Users = () => {
         </div>
 
         {/* Modal Crear/Editar Usuario */}
+
         {(showCreateModal || editingUser) && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
             <div className="w-full max-w-md max-h-screen p-6 overflow-y-auto rounded-lg bg-primaryB">
@@ -667,6 +893,7 @@ const Users = () => {
                   <label className="block mb-1 text-sm font-medium text-gray-700 ">
                     DNI
                   </label>
+
                   <input
                     type="text"
                     name="dni"
@@ -682,6 +909,7 @@ const Users = () => {
                   <label className="block mb-1 text-sm font-medium text-gray-700">
                     Nombre Completo
                   </label>
+
                   <input
                     type="text"
                     name="name"
@@ -697,6 +925,7 @@ const Users = () => {
                   <label className="block mb-1 text-sm font-medium text-gray-700">
                     Email
                   </label>
+
                   <input
                     type="email"
                     name="email"
@@ -711,6 +940,7 @@ const Users = () => {
                   <label className="block mb-1 text-sm font-medium text-gray-700">
                     Teléfono
                   </label>
+
                   <input
                     type="tel"
                     name="phone"
@@ -726,6 +956,7 @@ const Users = () => {
                   <label className="block mb-1 text-sm font-medium text-gray-700">
                     Rol
                   </label>
+
                   <select
                     name="role"
                     value={formData.role}
@@ -734,7 +965,9 @@ const Users = () => {
                     className="w-full px-3 py-3 text-base border-2 border-gray-300 rounded-md focus:outline-none focus:ring-septy focus:border-quinty"
                   >
                     <option value="PATIENT">Paciente</option>
+
                     <option value="DOCTOR">Doctor</option>
+
                     <option value="ADMIN">Administrador</option>
                   </select>
                 </div>
@@ -744,6 +977,7 @@ const Users = () => {
                     Contraseña{" "}
                     {editingUser && "(dejar en blanco para mantener la actual)"}
                   </label>
+
                   <input
                     type="text"
                     name="password"
@@ -765,17 +999,25 @@ const Users = () => {
                   >
                     {editingUser ? "Actualizar" : "Crear"}
                   </button>
+
                   <button
                     type="button"
                     onClick={() => {
                       setShowCreateModal(false);
+
                       setEditingUser(null);
+
                       setFormData({
                         dni: "",
+
                         name: "",
+
                         phone: "",
+
                         email: "",
+
                         role: "PATIENT",
+
                         password: "",
                       });
                     }}
@@ -791,6 +1033,7 @@ const Users = () => {
       </div>
 
       {/* Modal de Importar desde Orthanc */}
+
       {showOrthancModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="w-full max-w-4xl max-h-[90vh] p-6 bg-white rounded-lg overflow-hidden">
@@ -799,6 +1042,7 @@ const Users = () => {
                 <h3 className="text-lg font-semibold">
                   Importar Pacientes desde Orthanc PACS
                 </h3>
+
                 <button
                   onClick={() => setShowOrthancModal(false)}
                   className="text-gray-500 hover:text-gray-700"
@@ -820,6 +1064,7 @@ const Users = () => {
               </div>
 
               {/* Buscador */}
+
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                   <svg
@@ -836,6 +1081,7 @@ const Users = () => {
                     />
                   </svg>
                 </div>
+
                 <input
                   type="text"
                   placeholder="Buscar por nombre, ID, fecha o tipo..."
@@ -843,6 +1089,7 @@ const Users = () => {
                   onChange={(e) => setOrthancSearchTerm(e.target.value)}
                   className="w-full py-2 pl-10 pr-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
+
                 {orthancSearchTerm && (
                   <button
                     onClick={() => setOrthancSearchTerm("")}
@@ -869,6 +1116,7 @@ const Users = () => {
             {orthancLoading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="w-8 h-8 border-b-2 border-blue-600 rounded-full animate-spin"></div>
+
                 <p className="ml-3 text-gray-600">
                   Cargando estudios desde Orthanc...
                 </p>
@@ -885,7 +1133,9 @@ const Users = () => {
                     />
                   </svg>
                 </div>
+
                 <p className="font-medium text-red-600">{orthancError}</p>
+
                 <p className="mt-2 text-sm text-gray-500">
                   Verifique que Orthanc esté disponible en la configuración
                 </p>
@@ -902,6 +1152,7 @@ const Users = () => {
                     />
                   </svg>
                 </div>
+
                 <p className="text-gray-500">
                   No se encontraron estudios en Orthanc
                 </p>
@@ -919,15 +1170,18 @@ const Users = () => {
                           <img
                             src={withOrthancProxyAuth(
                               `${backendOrigin()}${study.previewUrl}`,
+
                               token,
                             )}
                             alt={`Preview de ${study.patientName}`}
                             className="object-cover w-full h-full"
                             onError={(e) => {
                               e.target.style.display = "none";
+
                               e.target.nextSibling.style.display = "flex";
                             }}
                           />
+
                           <div
                             className="items-center justify-center w-full h-full text-gray-400"
                             style={{ display: "none" }}
@@ -948,6 +1202,7 @@ const Users = () => {
                           </div>
                         </div>
                       )}
+
                       <div className="p-4">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
@@ -961,28 +1216,33 @@ const Users = () => {
                                 study.PatientName || study.patientName,
                               )}
                             </h4>
+
                             <p className="mt-1 text-sm text-gray-500">
                               DNI:{" "}
                               <span className="font-mono text-xs">
                                 {study.PatientID || study.patientDni || "N/A"}
                               </span>
                             </p>
+
                             <p className="text-sm text-gray-500">
                               Fecha:{" "}
                               {formatDicomDate(
                                 study.StudyDate || study.studyDate,
                               )}
                             </p>
+
                             <p className="text-sm text-gray-500">
                               Hora:{" "}
                               {formatDicomTime(
                                 study.StudyTime || study.studyTime,
                               )}
                             </p>
+
                             <p className="text-sm text-gray-500">
                               Tipo:{" "}
                               {study.StudyDescription || study.type || "N/A"}
                             </p>
+
                             <p className="text-sm text-gray-500">
                               Imagenes:{" "}
                               <span className="font-mono text-xs">
@@ -992,6 +1252,7 @@ const Users = () => {
                           </div>
 
                           {/* Menú hamburguesa para múltiples radiografías */}
+
                           {(study.Series > 1 || study.instancesCount > 1) && (
                             <button
                               onClick={() =>
@@ -1022,18 +1283,23 @@ const Users = () => {
                         </div>
 
                         {/* Sección expandible para múltiples radiografías */}
+
                         {expandedStudies.has(study.orthancId) && (
                           <div className="p-3 mt-3 border border-gray-200 rounded-md bg-gray-50">
                             <p className="mb-2 text-sm font-medium text-gray-700">
                               Detalles del Estudio
                             </p>
+
                             <div className="space-y-1 text-xs text-gray-600">
                               <p>Series: {study.Series}</p>
+
                               <p>Imágenes: {study.instancesCount}</p>
+
                               <p>
                                 Study Instance UID: {study.studyInstanceUid}
                               </p>
                             </div>
+
                             {study.seriesCount > 1 && (
                               <div className="pt-2 mt-2 border-t border-gray-200">
                                 <p className="mb-1 text-xs text-gray-500">
@@ -1077,4 +1343,5 @@ const Users = () => {
     </Layout>
   );
 };
+
 export default Users;

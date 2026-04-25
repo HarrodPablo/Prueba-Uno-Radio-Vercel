@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { FaFacebook, FaInstagram, FaWhatsapp } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
@@ -8,6 +9,12 @@ import { useAuth } from "../context/AuthContext";
 const Layout = ({ children }) => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const toggleMobileMenu = () => {
+    setMobileMenuOpen(!mobileMenuOpen);
+  };
 
   const handleLogout = () => {
     logout();
@@ -41,20 +48,20 @@ const Layout = ({ children }) => {
             {/* Logo a la izquierda */}
             <div className="flex items-center flex-shrink-0">
               <img
-                className="w-auto h-16 transition-transform duration-300 hover:scale-105"
+                className="w-auto h-12 transition-transform duration-300 sm:h-14 lg:h-16 hover:scale-105"
                 src={Logo}
                 alt="Diagnóstico López"
               />
             </div>
 
-            {/* Navegación centrada */}
+            {/* Navegación centrada - Desktop */}
             <div className="hidden sm:flex sm:items-center sm:justify-center sm:flex-1">
-              <div className="flex sm:space-x-8">
+              <div className="flex sm:space-x-4 lg:space-x-8">
                 {getNavItems().map((item) => (
                   <button
                     key={item.name}
                     onClick={() => navigate(item.path)}
-                    className="inline-flex items-center px-4 py-2 font-medium transition-all duration-200 bg-transparent border-b-2 border-transparent rounded-lg text-l text-septy hover:bg-septy hover:text-white hover:border-transparent"
+                    className="inline-flex items-center px-3 py-2 text-sm font-medium transition-all duration-200 bg-transparent border-b-2 border-transparent rounded-lg text-septy hover:bg-septy hover:text-white hover:border-transparent"
                   >
                     {item.name}
                   </button>
@@ -62,54 +69,106 @@ const Layout = ({ children }) => {
               </div>
             </div>
 
-            {/* Logout a la derecha */}
-            <div className="flex items-center">
+            {/* Logout button - Desktop */}
+            <div className="items-center hidden sm:flex">
               <div className="flex-shrink-0">
                 <button
                   onClick={handleLogout}
-                  className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-white transition-colors duration-200 bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                  className="relative inline-flex items-center px-3 py-2 text-sm font-medium text-white transition-colors duration-200 bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                 >
                   Cerrar Sesión
                 </button>
               </div>
             </div>
+
+            {/* Mobile menu button */}
+            <div className="flex items-center sm:hidden">
+              <button
+                onClick={toggleMobileMenu}
+                className="inline-flex items-center justify-center p-2 text-gray-400 rounded-md hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-septy"
+              >
+                <span className="sr-only">Open main menu</span>
+                {!mobileMenuOpen ? (
+                  <svg
+                    className="block w-6 h-6"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M4 6h16M4 12h16M4 18h16"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    className="block w-6 h-6"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                )}
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Mobile menu */}
-        <div className="sm:hidden">
-          <div className="pt-2 pb-3 space-y-1">
+        {/* Mobile menu panel */}
+        <div className={`sm:hidden ${mobileMenuOpen ? "block" : "hidden"}`}>
+          <div className="px-2 pt-2 pb-3 space-y-1">
             {getNavItems().map((item) => (
               <button
                 key={item.name}
-                onClick={() => navigate(item.path)}
-                className="block w-full py-2 pl-3 pr-4 text-base font-medium text-left text-gray-600 border-l-4 border-transparent hover:bg-gray-50 hover:border-gray-300 hover:text-gray-800"
+                onClick={() => {
+                  navigate(item.path);
+                  setMobileMenuOpen(false);
+                }}
+                className="block w-full px-3 py-2 text-base font-medium text-left text-gray-600 rounded-md hover:bg-gray-50 hover:text-gray-900 hover:border-gray-300"
               >
                 {item.name}
               </button>
             ))}
+            <button
+              onClick={handleLogout}
+              className="block w-full px-3 py-2 mt-4 text-base font-medium text-left text-white bg-red-600 rounded-md hover:bg-red-700"
+            >
+              Cerrar Sesión
+            </button>
           </div>
         </div>
       </nav>
 
       {/* Main content */}
-      <main className="flex-1 w-full px-3 py-4 sm:px-4 sm:py-5 lg:px-6 lg:py-6">
-        {children}
+      <main className="flex-1 w-full px-3 py-3 sm:px-4 sm:py-4 lg:px-6 lg:py-6">
+        <div className="max-w-full overflow-x-hidden">{children}</div>
       </main>
 
       {/* Footer */}
       <footer className="mt-auto text-white border-t border-gray-700 bg-septy">
         <div className="px-4 py-6 mx-auto max-w-7xl sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
+          <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {/* Información de la Empresa */}
-            <div>
+            <div className="sm:col-span-2 lg:col-span-1">
               <h3 className="mb-4 text-lg font-semibold text-white">
                 🏥 Diagnóstico por Imágenes López
               </h3>
               <div className="space-y-3">
-                <p className="flex items-center text-sm text-white">
+                <p className="flex items-start text-sm text-white">
                   <svg
-                    className="w-4 h-4 mr-2"
+                    className="w-4 h-4 mr-2 mt-0.5 flex-shrink-0"
                     fill="currentColor"
                     viewBox="0 0 20 20"
                   >
@@ -119,28 +178,32 @@ const Layout = ({ children }) => {
                       clipRule="evenodd"
                     />
                   </svg>
-                  Lobo de la Vega 301, Clinica del Pilar - Yerba Buena
+                  <span className="break-words">
+                    Lobo de la Vega 301, Clinica del Pilar - Yerba Buena
+                  </span>
                 </p>
                 <p className="flex items-center text-sm text-white">
                   <svg
-                    className="w-4 h-4 mr-2"
+                    className="flex-shrink-0 w-4 h-4 mr-2"
                     fill="currentColor"
                     viewBox="0 0 20 20"
                   >
                     <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
                   </svg>
-                  (+54) 381 6020324
+                  <span className="break-words">(+54) 381 6020324</span>
                 </p>
                 <p className="flex items-center text-sm text-white">
                   <svg
-                    className="w-4 h-4 mr-2"
+                    className="flex-shrink-0 w-4 h-4 mr-2"
                     fill="currentColor"
                     viewBox="0 0 20 20"
                   >
                     <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
                     <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
                   </svg>
-                  diagnosticolopez2026@gmail.com
+                  <span className="break-words">
+                    diagnosticolopez2026@gmail.com
+                  </span>
                 </p>
               </div>
             </div>
@@ -150,12 +213,12 @@ const Layout = ({ children }) => {
               <h3 className="mb-4 text-lg font-semibold text-white">
                 🔽 Síguenos en Redes Sociales
               </h3>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-3 xs:grid-cols-2 sm:grid-cols-1 lg:grid-cols-3">
                 <div className="text-center">
                   <a
                     href="https://www.instagram.com/lic.melirlopez/"
                     target="_blank"
-                    className="flex flex-col items-center p-2 space-y-1 transition-all duration-300 transform rounded-md group bg-gradient-to-br from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 hover:scale-105"
+                    className="flex flex-col items-center p-3 space-y-2 transition-all duration-300 transform rounded-md group bg-gradient-to-br from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 hover:scale-105"
                     title="Instagram"
                   >
                     <FaInstagram className="w-5 h-5 text-white" />
@@ -168,7 +231,7 @@ const Layout = ({ children }) => {
                   <a
                     href="https://wa.me/54912345678"
                     target="_blank"
-                    className="flex flex-col items-center p-2 space-y-1 transition-all duration-300 transform rounded-md group bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 hover:scale-105"
+                    className="flex flex-col items-center p-3 space-y-2 transition-all duration-300 transform rounded-md group bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 hover:scale-105"
                     title="WhatsApp"
                   >
                     <FaWhatsapp className="w-5 h-5 text-white" />
@@ -181,7 +244,7 @@ const Layout = ({ children }) => {
                   <a
                     href="https://www.facebook.com/profile.php?id=61570820751873"
                     target="_blank"
-                    className="flex flex-col items-center p-2 space-y-1 transition-all duration-300 transform rounded-md group bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 hover:scale-105"
+                    className="flex flex-col items-center p-3 space-y-2 transition-all duration-300 transform rounded-md group bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 hover:scale-105"
                     title="Facebook"
                   >
                     <FaFacebook className="w-5 h-5 text-white" />
@@ -199,16 +262,16 @@ const Layout = ({ children }) => {
                 💻 Desarrollo
               </h3>
               <div className="space-y-4">
-                <div className="flex items-center space-x-3">
+                <div className="flex flex-col items-start space-y-3 sm:flex-row sm:items-center sm:space-y-0 sm:space-x-4">
                   <div className="flex space-x-3">
                     <a
                       href="https://www.linkedin.com/in/pablo-ezequiel-harrod-b172423ab/"
                       target="_blank"
-                      className="inline-flex items-center justify-center w-10 h-10 text-gray-400 transition-all duration-200 bg-gray-800 rounded-lg hover:bg-blue-600 hover:text-white group"
+                      className="inline-flex items-center justify-center w-12 h-12 text-gray-400 transition-all duration-200 bg-gray-800 rounded-lg hover:bg-blue-600 hover:text-white group"
                       title="LinkedIn"
                     >
                       <svg
-                        className="w-5 h-5"
+                        className="w-6 h-6"
                         fill="currentColor"
                         viewBox="0 0 24 24"
                       >
@@ -216,7 +279,7 @@ const Layout = ({ children }) => {
                       </svg>
                     </a>
                   </div>
-                  <div>
+                  <div className="text-center sm:text-left">
                     <p className="text-sm font-medium text-white">
                       Pablo Ezequiel Harrod
                     </p>

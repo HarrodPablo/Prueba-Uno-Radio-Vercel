@@ -368,8 +368,8 @@ const Unified = () => {
 
           {/* Filtros */}
           <div className="p-4 mb-6 bg-white rounded-lg shadow">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-              <div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="sm:col-span-1 lg:col-span-1">
                 <label className="block mb-1 text-sm font-medium text-gray-700">
                   🔍 Buscar pacientes
                 </label>
@@ -378,12 +378,12 @@ const Unified = () => {
                   placeholder="Buscar por nombre o DNI"
                   value={searchInput}
                   onChange={(e) => handleSearchChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
 
               {user?.role === "DOCTOR" && (
-                <div>
+                <div className="sm:col-span-1 lg:col-span-1">
                   <label className="block mb-1 text-sm font-medium text-gray-700">
                     👨‍⚕️ Mis estudios
                   </label>
@@ -392,7 +392,7 @@ const Unified = () => {
                     onChange={(e) =>
                       handleFilterChange("onlyMyStudies", e.target.checked)
                     }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value={false}>Todos los estudios</option>
                     <option value={true}>Solo mis estudios</option>
@@ -400,7 +400,7 @@ const Unified = () => {
                 </div>
               )}
 
-              <div>
+              <div className="sm:col-span-1 lg:col-span-1">
                 <label className="block mb-1 text-sm font-medium text-gray-700">
                   📋 Estado de informes
                 </label>
@@ -412,14 +412,14 @@ const Unified = () => {
                       e.target.value === "without",
                     )
                   }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="without">Solo sin informe</option>
                   <option value="all">Todos</option>
                 </select>
               </div>
 
-              <div className="flex items-end">
+              <div className="sm:col-span-1 lg:col-span-1">
                 <button
                   onClick={() =>
                     setFilters({
@@ -430,7 +430,7 @@ const Unified = () => {
                       onlyMyStudies: false,
                     })
                   }
-                  className="px-4 py-2 text-white transition-colors bg-gray-500 rounded-md hover:bg-gray-600"
+                  className="w-full px-4 py-2 text-sm text-white transition-colors bg-gray-500 rounded-md hover:bg-gray-600"
                 >
                   🔄 Limpiar filtros
                 </button>
@@ -460,134 +460,270 @@ const Unified = () => {
                 </p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-quinty">
-                    <tr>
-                      <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
-                        👤 Paciente
-                      </th>
-                      <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
-                        📅 Fecha
-                      </th>
-                      <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
-                        🏥 Tipo de Estudio
-                      </th>
-                      <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
-                        👨‍⚕️ Doctor
-                      </th>
-                      <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
-                        📄 Informe
-                      </th>
-                      <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
-                        ⚡ Acciones
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+              <>
+                {/* Mobile Card Layout */}
+                <div className="block sm:hidden">
+                  <div className="space-y-4">
                     {items.map((item) => (
-                      <tr
+                      <div
                         key={item.id}
-                        className={
-                          item.type === "patient" ? "bg-orange-50" : ""
-                        }
+                        className={`p-4 border rounded-lg ${
+                          item.type === "patient"
+                            ? "bg-orange-50 border-orange-200"
+                            : "bg-white border-gray-200"
+                        }`}
                       >
-                        <td className="px-6 py-4 text-sm whitespace-nowrap">
-                          <div>
-                            <div className="font-medium text-gray-900">
-                              {item.patientName}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              DNI: {item.patientDni}
-                            </div>
+                        {/* Patient Info */}
+                        <div className="mb-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <h3 className="text-base font-semibold text-gray-900">
+                              👤 {item.patientName}
+                            </h3>
+                            <span
+                              className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                item.hasReport
+                                  ? "text-green-800 bg-green-100"
+                                  : "text-red-800 bg-red-100"
+                              }`}
+                            >
+                              {item.hasReport
+                                ? "✅ Con Informe"
+                                : "❌ Sin Informe"}
+                            </span>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                          {(() => {
-                            if (!item.studyDate) return "-";
-                            const date = new Date(item.studyDate);
-                            const localDate = new Date(
-                              date.getTime() + date.getTimezoneOffset() * 60000,
-                            );
-                            return localDate.toLocaleDateString("es-AR", {
-                              day: "2-digit",
-                              month: "2-digit",
-                              year: "numeric",
-                              timeZone: "America/Argentina/Buenos_Aires",
-                            });
-                          })()}
-                        </td>
-                        <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
-                          {item.StudyDescription || item.studyType}
-                        </td>
+                          <p className="text-sm text-gray-500">
+                            DNI: {item.patientDni}
+                          </p>
+                        </div>
 
-                        <td className="px-6 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
-                          {item.doctorName}
-                        </td>
-                        <td className="px-6 py-4 text-sm whitespace-nowrap">
-                          {item.hasReport ? (
-                            <span className="inline-flex px-2 text-xs font-semibold leading-5 text-center text-green-800 bg-green-100 rounded-full">
-                              ✅ Creado
-                            </span>
-                          ) : (
-                            <span className="inline-flex px-2 text-xs font-semibold leading-5 text-red-800 bg-red-100 rounded-full">
-                              ❌ Sin informe
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 text-sm font-medium text-center whitespace-nowrap">
-                          {item.type === "patient" ? (
-                            <span className="text-orange-600">
-                              📋 Sin estudios - Crear estudio
-                            </span>
-                          ) : item.hasReport ? (
-                            <>
-                              <button
-                                onClick={() => openEditReportModal(item)}
-                                className="mr-2 text-blue-600 hover:text-blue-900"
-                                title="Editar informe"
-                              >
-                                ✏️ Editar
-                              </button>
-                              <button
-                                onClick={() => handleViewImage(item)}
-                                className="mr-2 text-green-600 hover:text-green-900"
-                                title="Ver imagen"
-                              >
-                                🖼️ Ver Imagen
-                              </button>
-                              <button
-                                onClick={() => handleSendEmail(item)}
-                                className="text-green-500 hover:text-green-700"
-                                title="Enviar notificación por email"
-                              >
-                                📩 Notificar
-                              </button>
-                            </>
-                          ) : (
-                            <>
+                        {/* Study Info */}
+                        {item.type !== "patient" && (
+                          <div className="mb-3 space-y-2">
+                            <div className="flex items-center text-sm text-gray-700">
+                              <span className="mr-2 font-medium">
+                                📅 Fecha:
+                              </span>
+                              <span>
+                                {(() => {
+                                  if (!item.studyDate) return "-";
+                                  const date = new Date(item.studyDate);
+                                  const localDate = new Date(
+                                    date.getTime() +
+                                      date.getTimezoneOffset() * 60000,
+                                  );
+                                  return localDate.toLocaleDateString("es-AR", {
+                                    day: "2-digit",
+                                    month: "2-digit",
+                                    year: "numeric",
+                                    timeZone: "America/Argentina/Buenos_Aires",
+                                  });
+                                })()}
+                              </span>
+                            </div>
+                            <div className="flex items-center text-sm text-gray-700">
+                              <span className="mr-2 font-medium">
+                                🏥 Estudio:
+                              </span>
+                              <span>
+                                {item.StudyDescription || item.studyType}
+                              </span>
+                            </div>
+                            {item.doctorName && (
+                              <div className="flex items-center text-sm text-gray-700">
+                                <span className="mr-2 font-medium">
+                                  👨‍⚕️ Doctor:
+                                </span>
+                                <span>{item.doctorName}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Actions */}
+                        <div className="pt-3 border-t border-gray-200">
+                          <div className="flex flex-wrap gap-2">
+                            {item.type === "patient" ? (
                               <button
                                 onClick={() => openCreateReportModal(item)}
-                                className="mr-2 text-blue-600 hover:text-blue-900"
-                                title="Crear informe"
+                                className="flex-1 px-3 py-2 text-sm font-medium text-white bg-orange-600 rounded-md hover:bg-orange-700"
                               >
-                                📝 Crear Informe
+                                📋 Crear Estudio
                               </button>
-                              <button
-                                onClick={() => handleViewImage(item)}
-                                className="text-green-600 hover:text-green-900"
-                                title="Ver imagen"
-                              >
-                                🖼️ Ver Imagen
-                              </button>
-                            </>
-                          )}
-                        </td>
-                      </tr>
+                            ) : item.hasReport ? (
+                              <>
+                                <button
+                                  onClick={() => openEditReportModal(item)}
+                                  className="flex-1 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                                >
+                                  ✏️ Editar
+                                </button>
+                                <button
+                                  onClick={() => handleViewImage(item)}
+                                  className="flex-1 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                                >
+                                  🖼️ Ver Imagen
+                                </button>
+                                <button
+                                  onClick={() => handleSendEmail(item)}
+                                  className="flex-1 px-3 py-2 text-sm font-medium text-white bg-purple-600 rounded-md hover:bg-purple-700"
+                                >
+                                  📩 Notificar
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => openCreateReportModal(item)}
+                                  className="flex-1 px-3 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                                >
+                                  📝 Crear Informe
+                                </button>
+                                <button
+                                  onClick={() => handleViewImage(item)}
+                                  className="flex-1 px-3 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
+                                >
+                                  🖼️ Ver Imagen
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                  </div>
+                </div>
+
+                {/* Desktop Table Layout */}
+                <div className="hidden overflow-x-auto sm:block">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-quinty">
+                      <tr>
+                        <th className="px-4 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
+                          👤 Paciente
+                        </th>
+                        <th className="px-4 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
+                          📅 Fecha
+                        </th>
+                        <th className="px-4 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
+                          🏥 Tipo de Estudio
+                        </th>
+                        <th className="px-4 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
+                          👨‍⚕️ Doctor
+                        </th>
+                        <th className="px-4 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
+                          📄 Informe
+                        </th>
+                        <th className="px-4 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
+                          ⚡ Acciones
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {items.map((item) => (
+                        <tr
+                          key={item.id}
+                          className={
+                            item.type === "patient" ? "bg-orange-50" : ""
+                          }
+                        >
+                          <td className="px-4 py-4 text-sm whitespace-nowrap">
+                            <div>
+                              <div className="font-medium text-gray-900">
+                                {item.patientName}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                DNI: {item.patientDni}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 text-sm text-gray-900 whitespace-nowrap">
+                            {(() => {
+                              if (!item.studyDate) return "-";
+                              const date = new Date(item.studyDate);
+                              const localDate = new Date(
+                                date.getTime() +
+                                  date.getTimezoneOffset() * 60000,
+                              );
+                              return localDate.toLocaleDateString("es-AR", {
+                                day: "2-digit",
+                                month: "2-digit",
+                                year: "numeric",
+                                timeZone: "America/Argentina/Buenos_Aires",
+                              });
+                            })()}
+                          </td>
+                          <td className="px-4 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
+                            {item.StudyDescription || item.studyType}
+                          </td>
+
+                          <td className="px-4 py-4 text-sm text-center text-gray-900 whitespace-nowrap">
+                            {item.doctorName}
+                          </td>
+                          <td className="px-4 py-4 text-sm whitespace-nowrap">
+                            {item.hasReport ? (
+                              <span className="inline-flex px-2 text-xs font-semibold leading-5 text-center text-green-800 bg-green-100 rounded-full">
+                                ✅ Creado
+                              </span>
+                            ) : (
+                              <span className="inline-flex px-2 text-xs font-semibold leading-5 text-red-800 bg-red-100 rounded-full">
+                                ❌ Sin informe
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-4 text-sm font-medium text-center whitespace-nowrap">
+                            {item.type === "patient" ? (
+                              <span className="text-orange-600">
+                                📋 Sin estudios - Crear estudio
+                              </span>
+                            ) : item.hasReport ? (
+                              <>
+                                <button
+                                  onClick={() => openEditReportModal(item)}
+                                  className="px-2 py-1 mr-2 text-xs text-blue-600 border border-blue-300 rounded hover:text-blue-900 hover:bg-blue-50"
+                                  title="Editar informe"
+                                >
+                                  ✏️ Editar
+                                </button>
+                                <button
+                                  onClick={() => handleViewImage(item)}
+                                  className="px-2 py-1 mr-2 text-xs text-green-600 border border-green-300 rounded hover:text-green-900 hover:bg-green-50"
+                                  title="Ver imagen"
+                                >
+                                  🖼️ Ver Imagen
+                                </button>
+                                <button
+                                  onClick={() => handleSendEmail(item)}
+                                  className="px-2 py-1 text-xs text-purple-600 border border-purple-300 rounded hover:text-purple-900 hover:bg-purple-50"
+                                  title="Enviar notificación por email"
+                                >
+                                  📩 Notificar
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => openCreateReportModal(item)}
+                                  className="px-2 py-1 mr-2 text-xs text-blue-600 border border-blue-300 rounded hover:text-blue-900 hover:bg-blue-50"
+                                  title="Crear informe"
+                                >
+                                  📝 Crear Informe
+                                </button>
+                                <button
+                                  onClick={() => handleViewImage(item)}
+                                  className="px-2 py-1 text-xs text-green-600 border border-green-300 rounded hover:text-green-900 hover:bg-green-50"
+                                  title="Ver imagen"
+                                >
+                                  🖼️ Ver Imagen
+                                </button>
+                              </>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
 
             {/* Paginación */}
@@ -664,8 +800,8 @@ const Unified = () => {
 
         {/* Modal Crear Informe */}
         {showCreateReportModal && selectedStudy && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-            <div className="w-full max-w-4xl p-6 bg-white rounded-lg">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+            <div className="w-full max-w-2xl p-4 mx-auto bg-white rounded-lg sm:p-6">
               <h2 className="mb-4 text-lg font-semibold text-gray-900">
                 📝 Crear Informe Médico
               </h2>
@@ -704,16 +840,16 @@ const Unified = () => {
                     value={reportContent}
                     onChange={(e) => setReportContent(e.target.value)}
                     required
-                    rows={10}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    rows={8}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Ingrese el contenido del informe médico..."
                   />
                 </div>
 
-                <div className="flex space-x-3">
+                <div className="flex flex-col gap-3 sm:flex-row">
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 text-white transition-colors bg-blue-600 rounded-md hover:bg-blue-700"
+                    className="flex-1 px-4 py-3 text-white transition-colors bg-blue-600 rounded-md hover:bg-blue-700"
                   >
                     ✅ Crear Informe
                   </button>
@@ -724,7 +860,7 @@ const Unified = () => {
                       setSelectedStudy(null);
                       setReportContent("");
                     }}
-                    className="flex-1 px-4 py-2 text-white transition-colors bg-gray-500 rounded-md hover:bg-gray-600"
+                    className="flex-1 px-4 py-3 text-white transition-colors bg-gray-500 rounded-md hover:bg-gray-600"
                   >
                     ❌ Cancelar
                   </button>
@@ -736,8 +872,8 @@ const Unified = () => {
 
         {/* Modal Editar Informe */}
         {showEditReportModal && selectedStudy && selectedReport && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-            <div className="w-full max-w-4xl p-6 bg-white rounded-lg">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+            <div className="w-full max-w-2xl p-4 mx-auto bg-white rounded-lg sm:p-6">
               <h2 className="mb-4 text-lg font-semibold text-gray-900">
                 ✏️ Editar Informe Médico
               </h2>
@@ -776,16 +912,16 @@ const Unified = () => {
                     value={reportContent}
                     onChange={(e) => setReportContent(e.target.value)}
                     required
-                    rows={10}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    rows={8}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                     placeholder="Ingrese el contenido del informe médico..."
                   />
                 </div>
 
-                <div className="flex space-x-3">
+                <div className="flex flex-col gap-3 sm:flex-row">
                   <button
                     type="submit"
-                    className="flex-1 px-4 py-2 text-white transition-colors bg-blue-600 rounded-md hover:bg-blue-700"
+                    className="flex-1 px-4 py-3 text-white transition-colors bg-blue-600 rounded-md hover:bg-blue-700"
                   >
                     ✅ Actualizar Informe
                   </button>
@@ -797,7 +933,7 @@ const Unified = () => {
                       setSelectedReport(null);
                       setReportContent("");
                     }}
-                    className="flex-1 px-4 py-2 text-white transition-colors bg-gray-500 rounded-md hover:bg-gray-600"
+                    className="flex-1 px-4 py-3 text-white transition-colors bg-gray-500 rounded-md hover:bg-gray-600"
                   >
                     ❌ Cancelar
                   </button>
