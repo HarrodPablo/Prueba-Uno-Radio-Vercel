@@ -244,7 +244,7 @@ const pacsProxyHandler = async (req, res) => {
       // ── Everything else (images, wasm, binary): stream directly ───────
     } else {
       if (ct) {
-        res.setHeader("Content-Type", ct.split(";")[0].trim());
+        res.setHeader("Content-Type", ct);
       }
       if (response.headers["content-length"]) {
         res.setHeader("Content-Length", response.headers["content-length"]);
