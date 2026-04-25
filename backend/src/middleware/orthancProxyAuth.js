@@ -12,7 +12,7 @@ export const orthancProxyAuth = async (req, res, next) => {
     // Assets estáticos del Stone Viewer no requieren token en la request
     // (el browser los carga desde CSS sin poder adjuntar credenciales)
     const STONE_STATIC_RE = /\.(js|mjs|css|png|jpg|jpeg|gif|svg|webp|ico|woff2?|ttf|eot|map|wasm|json)(\?|$)/i;
-    const requestPath = req.path || req.url || "";
+    const requestPath = req.originalUrl || req.path || req.url || "";
     if (requestPath.includes("/stone-webviewer/") && STONE_STATIC_RE.test(requestPath)) {
       // Crear un user mínimo para que los middlewares siguientes no fallen
       req.user = { id: "static-asset", role: "STATIC", dni: null, name: null };
