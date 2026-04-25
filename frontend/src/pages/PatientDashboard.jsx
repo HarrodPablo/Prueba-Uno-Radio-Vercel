@@ -156,7 +156,7 @@ const PatientDashboard = () => {
   return (
     <Layout>
       <div className="px-4 py-6 sm:px-6 lg:px-8">
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           {/*
           <div className="mb-6 rounded-lg shadow bg-quinty">
             <div className="px-4 py-4 sm:p-5">
@@ -239,104 +239,189 @@ const PatientDashboard = () => {
                   </p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-quinty">
-                      <tr>
-                        <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
-                          Fecha
-                        </th>
-                        <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
-                          Tipo de Estudio
-                        </th>
-                        <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
-                          Informe
-                        </th>
-                        <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
-                          Acciones
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                <>
+                  {/* Mobile Card View */}
+                  <div className="block lg:hidden">
+                    <div className="space-y-4">
                       {studies.map((study) => (
-                        <tr key={study.id}>
-                          <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                            {formatDate(study.studyDate)}
-                          </td>
-                          <td className="px-6 py-4 text-center whitespace-nowrap">
-                            <span
-                              className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                                study.studyType === "RX General"
-                                  ? "bg-blue-100 text-blue-800"
-                                  : study.studyType === "Tomografia"
-                                    ? "bg-green-100 text-green-800"
-                                    : study.studyType === "Resonancia"
-                                      ? "bg-purple-100 text-purple-800"
-                                      : "bg-yellow-100 text-yellow-800"
-                              }`}
-                            >
-                              {study.studyType || "Sin tipo"}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 text-center whitespace-nowrap">
-                            {study.study?.reports &&
-                            study.study.reports.length > 0 ? (
-                              <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-green-800 bg-green-100 rounded-full">
-                                Con Informe
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-gray-800 bg-gray-100 rounded-full">
-                                Sin Informe
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 text-sm font-medium text-center whitespace-nowrap">
-                            <button
-                              onClick={() => handleViewImage(study)}
-                              className="px-2 py-1 mr-1 text-xs text-blue-600 border border-blue-600 rounded hover:text-blue-900"
-                            >
-                              Ver Imagen
-                            </button>
-                            {study.study?.reports &&
-                              study.study.reports.length > 0 && (
-                                <>
-                                  <button
-                                    onClick={() => handleViewReport(study)}
-                                    className="px-2 py-1 mr-1 text-xs text-purple-600 border border-purple-600 rounded hover:text-purple-900"
-                                  >
-                                    Ver Informe
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      study.study?.reports &&
-                                      study.study.reports[0] &&
-                                      generatePDF(study.study.reports[0], study)
-                                    }
-                                    className="px-2 py-1 text-xs text-green-600 border border-green-600 rounded hover:text-green-900"
-                                  >
-                                    Descargar
-                                  </button>
-                                </>
-                              )}
-                          </td>
-                        </tr>
+                        <div
+                          key={study.id}
+                          className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+                        >
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-start">
+                              <div className="flex-1">
+                                <p className="text-sm font-medium text-gray-900">
+                                  {formatDate(study.studyDate)}
+                                </p>
+                                <span
+                                  className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium mt-1 ${
+                                    study.studyType === "RX General"
+                                      ? "bg-blue-100 text-blue-800"
+                                      : study.studyType === "Tomografia"
+                                        ? "bg-green-100 text-green-800"
+                                        : study.studyType === "Resonancia"
+                                          ? "bg-purple-100 text-purple-800"
+                                          : "bg-yellow-100 text-yellow-800"
+                                  }`}
+                                >
+                                  {study.studyType || "Sin tipo"}
+                                </span>
+                              </div>
+                              <div className="flex flex-col items-end space-y-1">
+                                {study.study?.reports &&
+                                study.study.reports.length > 0 ? (
+                                  <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-800 bg-green-100 rounded-full">
+                                    Con Informe
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-gray-800 bg-gray-100 rounded-full">
+                                    Sin Informe
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2 pt-2 border-t border-gray-100">
+                              <button
+                                onClick={() => handleViewImage(study)}
+                                className="flex-1 px-3 py-2 text-xs text-blue-600 border border-blue-600 rounded hover:text-blue-900 hover:bg-blue-50 transition-colors min-w-[80px]"
+                              >
+                                Ver Imagen
+                              </button>
+                              {study.study?.reports &&
+                                study.study.reports.length > 0 && (
+                                  <>
+                                    <button
+                                      onClick={() => handleViewReport(study)}
+                                      className="flex-1 px-3 py-2 text-xs text-purple-600 border border-purple-600 rounded hover:text-purple-900 hover:bg-purple-50 transition-colors min-w-[80px]"
+                                    >
+                                      Ver Informe
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        study.study?.reports &&
+                                        study.study.reports[0] &&
+                                        generatePDF(
+                                          study.study.reports[0],
+                                          study,
+                                        )
+                                      }
+                                      className="flex-1 px-3 py-2 text-xs text-green-600 border border-green-600 rounded hover:text-green-900 hover:bg-green-50 transition-colors min-w-[80px]"
+                                    >
+                                      Descargar
+                                    </button>
+                                  </>
+                                )}
+                            </div>
+                          </div>
+                        </div>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
+                    </div>
+                  </div>
+
+                  {/* Desktop Table View */}
+                  <div className="hidden lg:block overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-quinty">
+                        <tr>
+                          <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
+                            Fecha
+                          </th>
+                          <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
+                            Tipo de Estudio
+                          </th>
+                          <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
+                            Informe
+                          </th>
+                          <th className="px-6 py-3 text-xs font-medium tracking-wider text-center text-gray-900 uppercase">
+                            Acciones
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {studies.map((study) => (
+                          <tr key={study.id}>
+                            <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
+                              {formatDate(study.studyDate)}
+                            </td>
+                            <td className="px-6 py-4 text-center whitespace-nowrap">
+                              <span
+                                className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                                  study.studyType === "RX General"
+                                    ? "bg-blue-100 text-blue-800"
+                                    : study.studyType === "Tomografia"
+                                      ? "bg-green-100 text-green-800"
+                                      : study.studyType === "Resonancia"
+                                        ? "bg-purple-100 text-purple-800"
+                                        : "bg-yellow-100 text-yellow-800"
+                                }`}
+                              >
+                                {study.studyType || "Sin tipo"}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-center whitespace-nowrap">
+                              {study.study?.reports &&
+                              study.study.reports.length > 0 ? (
+                                <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-green-800 bg-green-100 rounded-full">
+                                  Con Informe
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-3 py-1 text-xs font-medium text-gray-800 bg-gray-100 rounded-full">
+                                  Sin Informe
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-6 py-4 text-sm font-medium text-center whitespace-nowrap">
+                              <button
+                                onClick={() => handleViewImage(study)}
+                                className="px-2 py-1 mr-1 text-xs text-blue-600 border border-blue-600 rounded hover:text-blue-900"
+                              >
+                                Ver Imagen
+                              </button>
+                              {study.study?.reports &&
+                                study.study.reports.length > 0 && (
+                                  <>
+                                    <button
+                                      onClick={() => handleViewReport(study)}
+                                      className="px-2 py-1 mr-1 text-xs text-purple-600 border border-purple-600 rounded hover:text-purple-900"
+                                    >
+                                      Ver Informe
+                                    </button>
+                                    <button
+                                      onClick={() =>
+                                        study.study?.reports &&
+                                        study.study.reports[0] &&
+                                        generatePDF(
+                                          study.study.reports[0],
+                                          study,
+                                        )
+                                      }
+                                      className="px-2 py-1 text-xs text-green-600 border border-green-600 rounded hover:text-green-900"
+                                    >
+                                      Descargar
+                                    </button>
+                                  </>
+                                )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </>
               )}
             </div>
           </div>
 
           {pagination && pagination.pages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6">
-              <div className="flex justify-between flex-1 sm:hidden">
+            <div className="flex flex-col sm:flex-row items-center justify-between px-4 py-3 bg-white border-t border-gray-200 sm:px-6 gap-4">
+              <div className="flex justify-between w-full sm:hidden">
                 <button
                   onClick={() =>
                     handleFilterChange("page", Math.max(1, filters.page - 1))
                   }
                   disabled={filters.page === 1}
-                  className="relative inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                  className="relative inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex-1 mr-2"
                 >
                   Anterior
                 </button>
@@ -348,12 +433,12 @@ const PatientDashboard = () => {
                     )
                   }
                   disabled={filters.page === pagination.pages}
-                  className="relative inline-flex items-center px-4 py-2 ml-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                  className="relative inline-flex items-center justify-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex-1"
                 >
                   Siguiente
                 </button>
               </div>
-              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+              <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between w-full">
                 <div>
                   <p className="text-sm text-gray-700">
                     Pagina <span className="font-medium">{filters.page}</span>{" "}
@@ -370,7 +455,7 @@ const PatientDashboard = () => {
                         )
                       }
                       disabled={filters.page === 1}
-                      className="relative inline-flex items-center px-2 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50"
+                      className="relative inline-flex items-center px-2 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <span className="sr-only">Anterior</span>
                       <svg
@@ -394,7 +479,7 @@ const PatientDashboard = () => {
                         )
                       }
                       disabled={filters.page === pagination.pages}
-                      className="relative inline-flex items-center px-2 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-r-md hover:bg-gray-50"
+                      className="relative inline-flex items-center px-2 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-r-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <span className="sr-only">Siguiente</span>
                       <svg
@@ -430,59 +515,81 @@ const PatientDashboard = () => {
       )}
 
       {showReportModal && selectedReport && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-white rounded-lg w-full max-w-4xl p-6 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+          <div className="bg-white rounded-lg w-full max-w-4xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900">
                 Informe Medico Completo
               </h2>
               <button
                 onClick={handleCloseReportModal}
-                className="text-gray-400 hover:text-gray-600"
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100 transition-colors"
               >
-                X
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
               </button>
             </div>
 
             <div className="space-y-4">
-              <div className="p-4 rounded-lg bg-gray-50">
-                <h3 className="mb-2 text-lg font-medium text-gray-900">
+              <div className="p-3 sm:p-4 rounded-lg bg-gray-50">
+                <h3 className="mb-2 sm:mb-3 text-base sm:text-lg font-medium text-gray-900">
                   Informacion del Estudio
                 </h3>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 sm:gap-4 sm:grid-cols-2">
                   <div>
-                    <span className="text-sm font-medium text-gray-500">
+                    <span className="text-xs sm:text-sm font-medium text-gray-500">
                       Paciente:
                     </span>
-                    <p className="text-sm text-gray-900">
+                    <p className="text-xs sm:text-sm text-gray-900 mt-1">
                       {selectedReport.patientName || "N/A"}
                     </p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-500">
+                    <span className="text-xs sm:text-sm font-medium text-gray-500">
                       Tipo de Estudio:
                     </span>
-                    <p className="text-sm text-gray-900">
+                    <p className="text-xs sm:text-sm text-gray-900 mt-1">
                       {selectedReport.studyType || "N/A"}
                     </p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-gray-500">
+                    <span className="text-xs sm:text-sm font-medium text-gray-500">
                       Fecha del Estudio:
                     </span>
-                    <p className="text-sm text-gray-900">
+                    <p className="text-xs sm:text-sm text-gray-900 mt-1">
                       {formatDate(selectedReport.studyDate)}
                     </p>
                   </div>
+                  {selectedReport.doctorName && (
+                    <div>
+                      <span className="text-xs sm:text-sm font-medium text-gray-500">
+                        Medico:
+                      </span>
+                      <p className="text-xs sm:text-sm text-gray-900 mt-1">
+                        {selectedReport.doctorName}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="p-4 rounded-lg bg-blue-50">
-                <h3 className="mb-2 text-lg font-medium text-blue-900">
+              <div className="p-3 sm:p-4 rounded-lg bg-blue-50">
+                <h3 className="mb-2 sm:mb-3 text-base sm:text-lg font-medium text-blue-900">
                   Contenido del Informe
                 </h3>
-                <div className="p-4 bg-white border border-blue-200 rounded">
-                  <pre className="text-sm leading-relaxed text-gray-800 whitespace-pre-wrap">
+                <div className="p-3 sm:p-4 bg-white border border-blue-200 rounded">
+                  <pre className="text-xs sm:text-sm leading-relaxed text-gray-800 whitespace-pre-wrap">
                     {selectedReport.content}
                   </pre>
                 </div>
