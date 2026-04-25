@@ -1,26 +1,26 @@
 {
-  "Name" : "PACS DonWeb Seguro",
+  "Name": "PACS DonWeb Seguro",
   "DicomAet": "DONWEBPACS",
-  "StorageDirectory" : "/var/lib/orthanc/db",
-  "IndexDirectory" : "/var/lib/orthanc/db",
-  "AuthenticationEnabled" : true,
-  "RegisteredUsers" : {
-    "pablo" : "TuPasswordSecreto123"
+  "StorageDirectory": "/var/lib/orthanc/db",
+  "IndexDirectory": "/var/lib/orthanc/db",
+  "AuthenticationEnabled": true,
+  "RegisteredUsers": {
+    "pablo": "TuPasswordSecreto123"
   },
-  "DicomPort" : 4242,
-  "HttpPort" : 8042,
-  "RemoteAccessAllowed" : true,
-  "Plugins" : [ "/usr/local/share/orthanc/plugins" ],
-  "HttpCompressionEnabled" : true,
-  "HttpServerThreadsCount" : 8,
-  "DicomWeb" : {
-    "Enable" : true,
-    "Root" : "/dicom-web/",
-    "EnableWado" : true,
-    "WadoRoot" : "/wado",
-    "PublicRoot" : "/api/orthanc/pacs/dicom-web/"
+  "DicomPort": 4242,
+  "HttpPort": 8042,
+  "RemoteAccessAllowed": true,
+  "Plugins": ["/usr/local/share/orthanc/plugins"],
+  "HttpCompressionEnabled": true,
+  "HttpServerThreadsCount": 8,
+  "DicomWeb": {
+    "Enable": true,
+    "Root": "/dicom-web/",
+    "EnableWado": true,
+    "WadoRoot": "/wado",
+    "PublicRoot": "/api/orthanc/pacs/dicom-web/"
   },
   "StoneWebViewer": {
-    "Enable" : true
+    "Enable": true
   }
 }
