@@ -41,8 +41,6 @@ function rewriteOrthancHtml(html, token, orthancPath = "/") {
     return `${fullPath}${sep}token=${encodeURIComponent(token)}`;
   };
 
-  // Base directory for relative URLs inside the returned HTML
-  // e.g. /stone-webviewer/index.html -> /stone-webviewer/
   const baseDir = (() => {
     const p = orthancPath.split("?")[0] || "/";
     if (p.endsWith("/")) return p;
@@ -51,7 +49,6 @@ function rewriteOrthancHtml(html, token, orthancPath = "/") {
   })();
 
   const absolutizeRelative = (rel) => {
-    // ignore anchors, mailto, JS pseudo-urls
     if (
       !rel ||
       rel.startsWith("#") ||
@@ -60,7 +57,6 @@ function rewriteOrthancHtml(html, token, orthancPath = "/") {
     ) {
       return rel;
     }
-    // already absolute-ish (starts with / or protocol)
     if (
       rel.startsWith("/") ||
       rel.startsWith("http://") ||
@@ -69,53 +65,51 @@ function rewriteOrthancHtml(html, token, orthancPath = "/") {
     ) {
       return rel;
     }
-    // normalize ./ prefix
     const cleaned = rel.startsWith("./") ? rel.slice(2) : rel;
     return `${PRE}${baseDir}${cleaned}`;
   };
 
-  return (
-    html
-      .replace(/\s(href|src)=(["'])(\/[^"']*)\2/gi, (m, attr, q, p) => {
-        if (
-          p.startsWith("http://") ||
-          p.startsWith("https://") ||
-          p.startsWith("data:")
-        ) {
-          return m;
-        }
-        if (p.startsWith(PRE)) return ` ${attr}=${q}${appendToken(p)}${q}`;
-        if (p.startsWith("/api/") && !p.startsWith(PRE)) return m;
-        const np = `${PRE}${p}`;
+  return html
+    .replace(/\s(href|src)=(["'])(\/[^"']*)\2/gi, (m, attr, q, p) => {
+      if (
+        p.startsWith("http://") ||
+        p.startsWith("https://") ||
+        p.startsWith("data:")
+      ) {
+        return m;
+      }
+      if (p.startsWith(PRE)) return ` ${attr}=${q}${appendToken(p)}${q}`;
+      if (p.startsWith("/api/") && !p.startsWith(PRE)) return m;
+      const np = `${PRE}${p}`;
+      return ` ${attr}=${q}${appendToken(np)}${q}`;
+    })
+    .replace(
+      /\s(href|src)=(["'])(?!\/|https?:|data:|#|mailto:|javascript:)([^"']+)\2/gi,
+      (m, attr, q, p) => {
+        const np = absolutizeRelative(p);
+        if (!np || np === p) return m;
         return ` ${attr}=${q}${appendToken(np)}${q}`;
-      })
-      // Rewrite relative asset paths like css/all.css, js/app.js, img/x.png
-      .replace(
-        /\s(href|src)=(["'])(?!\/|https?:|data:|#|mailto:|javascript:)([^"']+)\2/gi,
-        (m, attr, q, p) => {
-          const np = absolutizeRelative(p);
-          if (!np || np === p) return m;
-          return ` ${attr}=${q}${appendToken(np)}${q}`;
-        },
-      )
-      .replace(/url\(\s*([\'"]?)(\/[^)\'"]+)\1\s*\)/gi, (m, q, p) => {
-        if (p.startsWith("http://") || p.startsWith("https://")) return m;
-        if (p.startsWith(PRE)) return `url(${q}${appendToken(p)}${q})`;
-        if (p.startsWith("/api/") && !p.startsWith(PRE)) return m;
-        const np = `${PRE}${p}`;
+      },
+    )
+    .replace(/url\(\s*([\'"]?)(\/[^)\'"]+)\1\s*\)/gi, (m, q, p) => {
+      if (p.startsWith("http://") || p.startsWith("https://")) return m;
+      if (p.startsWith(PRE)) return `url(${q}${appendToken(p)}${q})`;
+      if (p.startsWith("/api/") && !p.startsWith(PRE)) return m;
+      const np = `${PRE}${p}`;
+      return `url(${q}${appendToken(np)}${q})`;
+    })
+    .replace(
+      /url\(\s*([\'"]?)(?!\/|https?:|data:)([^)\'"]+)\1\s*\)/gi,
+      (m, q, p) => {
+        const np = absolutizeRelative(p);
+        if (!np || np === p) return m;
         return `url(${q}${appendToken(np)}${q})`;
-      })
-      // Rewrite relative CSS url() like url(img/foo.png)
-      .replace(
-        /url\(\s*([\'"]?)(?!\/|https?:|data:)([^)\'"]+)\1\s*\)/gi,
-        (m, q, p) => {
-          const np = absolutizeRelative(p);
-          if (!np || np === p) return m;
-          return `url(${q}${appendToken(np)}${q})`;
-        },
-      )
-  );
+      },
+    );
 }
+
+// Content types that must be buffered (not streamed) to avoid corruption through Railway proxy
+const MUST_BUFFER_RE = /application\/(json|dicom\+json)|text\/(plain|xml)/i;
 
 const pacsProxyHandler = async (req, res) => {
   try {
@@ -135,7 +129,6 @@ const pacsProxyHandler = async (req, res) => {
     const qstr = u.searchParams.toString();
     const targetUrl = `${ORTHANC_BASE}${orthancPath}${qstr ? `?${qstr}` : ""}`;
 
-    // Stream response directly when possible to avoid buffer copies
     const response = await axios({
       method: req.method,
       url: targetUrl,
@@ -157,21 +150,17 @@ const pacsProxyHandler = async (req, res) => {
       },
     });
 
-    // Handle 304 Not Modified responses immediately
     if (response.status === 304) {
       if (response.headers["etag"])
         res.setHeader("ETag", response.headers["etag"]);
       return res.status(304).end();
     }
 
-    // Copy essential headers
     const ct = response.headers["content-type"] || "";
     const STATIC_ASSET_RE =
       /\.(js|mjs|css|png|jpg|jpeg|gif|svg|webp|ico|woff2?|ttf|eot|map|wasm)(\?|$)/i;
 
-    // Set cache headers based on content type
     if (STATIC_ASSET_RE.test(orthancPath)) {
-      // Assets del Stone Viewer: cache agresivo (no cambian entre versiones)
       res.setHeader("Cache-Control", "public, max-age=86400, immutable");
     } else if (ct.toLowerCase().includes("text/html")) {
       res.setHeader("Cache-Control", "no-store");
@@ -179,13 +168,11 @@ const pacsProxyHandler = async (req, res) => {
       orthancPath.includes("/instances/") &&
       orthancPath.includes("/preview")
     ) {
-      // Previews DICOM: cache 1 hora
       res.setHeader("Cache-Control", "public, max-age=3600");
     } else if (
       orthancPath.includes("/dicom-web/") ||
       orthancPath.includes("/instances/")
     ) {
-      // Datos DICOM: no cachear en proxy, Orthanc los tiene
       res.setHeader("Cache-Control", "no-store");
     }
 
@@ -195,9 +182,6 @@ const pacsProxyHandler = async (req, res) => {
         response.headers["content-disposition"],
       );
     }
-    if (response.headers["content-length"]) {
-      res.setHeader("Content-Length", response.headers["content-length"]);
-    }
     if (response.headers["etag"]) {
       res.setHeader("ETag", response.headers["etag"]);
     }
@@ -205,20 +189,18 @@ const pacsProxyHandler = async (req, res) => {
       res.setHeader("Last-Modified", response.headers["last-modified"]);
     }
 
-    // Handle HTML content specially for token rewriting
+    // ── HTML: buffer to rewrite URLs ──────────────────────────────────
     if (ct.toLowerCase().includes("text/html")) {
-      // Setear cookie para autenticar assets estáticos
       if (tokenQs) {
         res.cookie("orthanc_proxy_jwt", tokenQs, {
           httpOnly: true,
           secure: process.env.NODE_ENV === "production",
           sameSite: "strict",
-          maxAge: 3600 * 1000, // 1 hora
+          maxAge: 3600 * 1000,
           path: "/api/orthanc/pacs",
         });
       }
 
-      // For HTML, we need to buffer to rewrite URLs
       const chunks = [];
       response.data.on("data", (chunk) => chunks.push(chunk));
       response.data.on("end", () => {
@@ -230,29 +212,57 @@ const pacsProxyHandler = async (req, res) => {
         res.status(response.status).send(text);
       });
       response.data.on("error", (err) => {
-        console.error("Stream error:", err);
-        res.status(502).json({
-          error: "Error al obtener recurso desde Orthanc",
-          message: err.message,
-        });
+        console.error("Stream error (html):", err);
+        if (!res.headersSent)
+          res
+            .status(502)
+            .json({
+              error: "Error al obtener recurso desde Orthanc",
+              message: err.message,
+            });
       });
+
+      // ── JSON / DICOM+JSON: buffer to avoid Railway stream corruption ───
+    } else if (MUST_BUFFER_RE.test(ct)) {
+      const chunks = [];
+      response.data.on("data", (chunk) => chunks.push(chunk));
+      response.data.on("end", () => {
+        const buf = Buffer.concat(chunks);
+        // Use original content-type (may be application/json or application/dicom+json)
+        res.setHeader("Content-Type", ct);
+        res.setHeader("Content-Length", buf.length);
+        res.status(response.status).send(buf);
+      });
+      response.data.on("error", (err) => {
+        console.error("Stream error (json):", err);
+        if (!res.headersSent)
+          res
+            .status(502)
+            .json({
+              error: "Error al obtener recurso desde Orthanc",
+              message: err.message,
+            });
+      });
+
+      // ── Everything else (images, wasm, binary): stream directly ───────
     } else {
-      // For non-HTML content, stream directly
       if (ct) {
         res.setHeader("Content-Type", ct.split(";")[0].trim());
       }
-
+      if (response.headers["content-length"]) {
+        res.setHeader("Content-Length", response.headers["content-length"]);
+      }
       res.status(response.status);
       response.data.pipe(res);
-
       response.data.on("error", (err) => {
-        console.error("Stream error:", err);
-        if (!res.headersSent) {
-          res.status(502).json({
-            error: "Error al obtener recurso desde Orthanc",
-            message: err.message,
-          });
-        }
+        console.error("Stream error (binary):", err);
+        if (!res.headersSent)
+          res
+            .status(502)
+            .json({
+              error: "Error al obtener recurso desde Orthanc",
+              message: err.message,
+            });
       });
     }
   } catch (err) {
@@ -270,7 +280,6 @@ router.use(
   "/pacs",
   orthancProxyAuth,
   (req, res, next) => {
-    // Assets estáticos del Stone Viewer bypasean roleMiddleware
     if (req.user?.role === "STATIC") return next();
     return roleMiddleware(["ADMIN", "DOCTOR", "PATIENT"])(req, res, next);
   },
@@ -285,10 +294,8 @@ router.get(
   roleMiddleware(["ADMIN", "DOCTOR"]),
   async (req, res) => {
     try {
-      // Add cache headers
-      res.set("Cache-Control", "public, max-age=300"); // 5 minutes
+      res.set("Cache-Control", "public, max-age=300");
 
-      // Verificar conexión con Orthanc
       const isOrthancConnected = await checkOrthancConnection();
       if (!isOrthancConnected) {
         return res.status(503).json({
@@ -324,15 +331,11 @@ router.get(
       const { id } = req.params;
 
       if (!id) {
-        return res.status(400).json({
-          error: "Se requiere el ID del estudio",
-        });
+        return res.status(400).json({ error: "Se requiere el ID del estudio" });
       }
 
-      // Add cache headers
-      res.set("Cache-Control", "public, max-age=600"); // 10 minutes
+      res.set("Cache-Control", "public, max-age=600");
 
-      // Si es PACIENTE, verificar que el estudio le pertenezca
       if (req.user.role === "PATIENT") {
         const { prisma } = await import("../lib/prisma.js");
         const study = await prisma.study.findFirst({
@@ -349,10 +352,7 @@ router.get(
 
       const studyDetails = await getStudyDetails(id);
 
-      res.json({
-        success: true,
-        data: studyDetails,
-      });
+      res.json({ success: true, data: studyDetails });
     } catch (error) {
       console.error("Error fetching study details from Orthanc:", error);
       res.status(500).json({
@@ -363,7 +363,7 @@ router.get(
   },
 );
 
-// ─── ENDPOINT 3: Asignar estudio a paciente (crear si no existe) ─────────────────────
+// ─── ENDPOINT 3: Asignar estudio a paciente ─────────────────────────────────
 router.post(
   "/assign",
   authMiddleware,
@@ -372,26 +372,18 @@ router.post(
     try {
       const { patientId, orthancId, patientDni, patientName } = req.body;
 
-      // Validar datos requeridos
       if (!orthancId) {
-        return res.status(400).json({
-          error: "orthancId es requerido",
-        });
+        return res.status(400).json({ error: "orthancId es requerido" });
       }
 
       const { prisma } = await import("../lib/prisma.js");
       let patient = null;
 
-      // Si se proporciona patientId, buscar paciente existente
       if (patientId) {
-        patient = await prisma.user.findUnique({
-          where: { id: patientId },
-        });
+        patient = await prisma.user.findUnique({ where: { id: patientId } });
       }
 
-      // Si no se encuentra paciente pero se proporciona DNI y nombre, crearlo
       if (!patient && patientDni && patientName) {
-        // Verificar si ya existe un paciente con ese DNI
         const existingPatient = await prisma.user.findUnique({
           where: { dni: patientDni },
         });
@@ -399,19 +391,15 @@ router.post(
         if (existingPatient) {
           patient = existingPatient;
         } else {
-          // Crear nuevo paciente con contraseña = DNI (usando hash pre-generado)
-          // Hash pre-generado para 99999999 que sabemos funciona
           const knownHash = "$2a$10$N9qo8uLOickgx2ZMRQo/p1s3N.EYUZd3RfKJpGqy";
-
-          // Verificar inmediatamente que el hash funcione
-          const testMatch = await bcrypt.compare(patientDni, knownHash);
+          await bcrypt.compare(patientDni, knownHash);
 
           patient = await prisma.user.create({
             data: {
               dni: patientDni,
               name: patientName,
-              phone: "Sin teléfono", // Valor por defecto
-              email: null, // Opcional
+              phone: "Sin teléfono",
+              email: null,
               role: "PATIENT",
               password: knownHash,
             },
@@ -426,16 +414,14 @@ router.post(
         });
       }
 
-      // Verificar que el estudio existe en Orthanc
       const studyDetails = await getStudyDetails(orthancId);
 
       if (!studyDetails) {
-        return res.status(400).json({
-          error: "Estudio no encontrado en Orthanc",
-        });
+        return res
+          .status(400)
+          .json({ error: "Estudio no encontrado en Orthanc" });
       }
 
-      // Convertir fecha DICOM (YYYYMMDD) a Date o usar fecha actual
       let studyDate = new Date();
       if (studyDetails.studyDate && studyDetails.studyDate !== "Sin fecha") {
         const dicomDate = studyDetails.studyDate;
@@ -449,7 +435,6 @@ router.post(
           }
         }
       }
-      // Crear estudio en la base de datos local
 
       const study = await prisma.study.create({
         data: {
@@ -478,7 +463,6 @@ router.post(
             dni: patient.dni,
             name: patient.name,
             role: patient.role,
-            // Importante: indicar que la contraseña es el DNI
             loginInfo: `Use DNI ${patient.dni} como usuario y contraseña`,
           },
         },
@@ -503,51 +487,33 @@ router.get(
       const { id } = req.params;
 
       if (!id) {
-        return res.status(400).json({
-          error: "Se requiere el ID del paciente",
-        });
+        return res
+          .status(400)
+          .json({ error: "Se requiere el ID del paciente" });
       }
 
-      // Add cache headers
-      res.set("Cache-Control", "public, max-age=300"); // 5 minutes
+      res.set("Cache-Control", "public, max-age=300");
 
-      // Obtener estudios del paciente desde la base de datos local
       const { prisma } = await import("../lib/prisma.js");
       const studies = await prisma.study.findMany({
         where: { patientId: id },
         include: {
-          patient: {
-            select: {
-              name: true,
-              dni: true,
-            },
-          },
-          doctor: {
-            select: {
-              name: true,
-            },
-          },
+          patient: { select: { name: true, dni: true } },
+          doctor: { select: { name: true } },
         },
-        orderBy: {
-          studyDate: "desc",
-        },
+        orderBy: { studyDate: "desc" },
       });
 
       if (studies.length === 0) {
-        return res.json({
-          success: true,
-          data: [],
-        });
+        return res.json({ success: true, data: [] });
       }
 
-      // Batch all Orthanc requests to avoid N+1 problem
       const orthancIds = studies
         .filter((s) => s.orthancId)
         .map((s) => s.orthancId);
       const previewUrlMap = new Map();
 
       if (orthancIds.length > 0) {
-        // Get all study details in parallel
         const detailPromises = orthancIds.map(async (orthancId) => {
           try {
             const details = await getStudyDetails(orthancId);
@@ -582,10 +548,7 @@ router.get(
         };
       });
 
-      res.json({
-        success: true,
-        data: studiesWithPreview,
-      });
+      res.json({ success: true, data: studiesWithPreview });
     } catch (error) {
       console.error("Error fetching patient studies:", error);
       res.status(500).json({
@@ -606,9 +569,9 @@ router.get(
       const { instanceId } = req.params;
 
       if (!instanceId) {
-        return res.status(400).json({
-          error: "Se requiere el ID de la instancia",
-        });
+        return res
+          .status(400)
+          .json({ error: "Se requiere el ID de la instancia" });
       }
 
       const ORTHANC_URL = process.env.ORTHANC_URL;
@@ -619,23 +582,17 @@ router.get(
         `${ORTHANC_URL}/instances/${instanceId}/file`,
         {
           responseType: "arraybuffer",
-          auth: {
-            username: ORTHANC_USER,
-            password: ORTHANC_PASS,
-          },
+          auth: { username: ORTHANC_USER, password: ORTHANC_PASS },
           timeout: 30000,
         },
       );
 
-      // Configurar headers para la respuesta
       res.setHeader("Content-Type", "application/dicom");
       res.setHeader("Content-Length", response.data.byteLength);
       res.setHeader(
         "Content-Disposition",
         `inline; filename="${instanceId}.dcm"`,
       );
-
-      // Enviar el archivo como buffer
       res.send(Buffer.from(response.data));
     } catch (error) {
       console.error("Error serving DICOM file:", {
