@@ -109,7 +109,8 @@ function rewriteOrthancHtml(html, token, orthancPath = "/") {
 }
 
 // Content types that must be buffered (not streamed) to avoid corruption through Railway proxy
-const MUST_BUFFER_RE = /application\/(json|dicom\+json)|text\/(plain|xml)/i;
+const MUST_BUFFER_RE =
+  /application\/(json|dicom\+json|javascript)|text\/(plain|xml|javascript|css)/i;
 
 const pacsProxyHandler = async (req, res) => {
   try {
@@ -214,12 +215,10 @@ const pacsProxyHandler = async (req, res) => {
       response.data.on("error", (err) => {
         console.error("Stream error (html):", err);
         if (!res.headersSent)
-          res
-            .status(502)
-            .json({
-              error: "Error al obtener recurso desde Orthanc",
-              message: err.message,
-            });
+          res.status(502).json({
+            error: "Error al obtener recurso desde Orthanc",
+            message: err.message,
+          });
       });
 
       // ── JSON / DICOM+JSON: buffer to avoid Railway stream corruption ───
@@ -236,12 +235,10 @@ const pacsProxyHandler = async (req, res) => {
       response.data.on("error", (err) => {
         console.error("Stream error (json):", err);
         if (!res.headersSent)
-          res
-            .status(502)
-            .json({
-              error: "Error al obtener recurso desde Orthanc",
-              message: err.message,
-            });
+          res.status(502).json({
+            error: "Error al obtener recurso desde Orthanc",
+            message: err.message,
+          });
       });
 
       // ── Everything else (images, wasm, binary): stream directly ───────
@@ -257,12 +254,10 @@ const pacsProxyHandler = async (req, res) => {
       response.data.on("error", (err) => {
         console.error("Stream error (binary):", err);
         if (!res.headersSent)
-          res
-            .status(502)
-            .json({
-              error: "Error al obtener recurso desde Orthanc",
-              message: err.message,
-            });
+          res.status(502).json({
+            error: "Error al obtener recurso desde Orthanc",
+            message: err.message,
+          });
       });
     }
   } catch (err) {
