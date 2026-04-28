@@ -5,7 +5,7 @@ import DicomViewer from "../components/DicomViewer";
 import Layout from "../components/Layout";
 import { useAuth } from "../context/AuthContext";
 import { backendOrigin, withOrthancProxyAuth } from "../utils/orthancUrl";
- 
+
 const AdminStudies = () => {
   const { token } = useAuth();
   const [items, setItems] = useState([]);
@@ -14,7 +14,9 @@ const AdminStudies = () => {
   const [showImageViewer, setShowImageViewer] = useState(false);
   const [selectedStudy, setSelectedStudy] = useState(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
- 
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [selectedReport, setSelectedReport] = useState(null);
+
   // Estados para Orthanc
   const [orthancStudies, setOrthancStudies] = useState([]);
   const [orthancLoading, setOrthancLoading] = useState(false);
@@ -22,7 +24,7 @@ const AdminStudies = () => {
   const [showOrthancModal, setShowOrthancModal] = useState(false);
   const [orthancSearchTerm, setOrthancSearchTerm] = useState("");
   const [users, setUsers] = useState([]);
- 
+
   const [uploadData, setUploadData] = useState({
     patientDni: "",
     type: "",
@@ -30,7 +32,7 @@ const AdminStudies = () => {
     notes: "",
     imageFiles: [],
   });
- 
+
   const [filters, setFilters] = useState({
     page: 1,
     limit: 10,
@@ -39,23 +41,23 @@ const AdminStudies = () => {
     dateTo: "",
     onlyWithoutReports: false,
   });
- 
+
   const [pagination, setPagination] = useState(null);
   const [summary, setSummary] = useState(null);
   const [searchInput, setSearchInput] = useState("");
- 
+
   const debounceTimerRef = useRef(null);
- 
+
   const fetchUnifiedData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
- 
+
       const params = new URLSearchParams();
       Object.entries(filters).forEach(([key, value]) => {
         if (value) params.append(key, value);
       });
- 
+
       const response = await axios.get(`/api/unified?${params}`);
       setItems(response.data.items);
       setPagination(response.data.pagination);
@@ -67,11 +69,11 @@ const AdminStudies = () => {
       setLoading(false);
     }
   }, [filters]);
- 
+
   useEffect(() => {
     fetchUnifiedData();
   }, [fetchUnifiedData]);
- 
+
   useEffect(() => {
     return () => {
       if (debounceTimerRef.current) {
@@ -79,19 +81,19 @@ const AdminStudies = () => {
       }
     };
   }, []);
- 
+
   const handleSearchChange = (value) => {
     setSearchInput(value);
- 
+
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
- 
+
     debounceTimerRef.current = setTimeout(() => {
       setFilters((prev) => ({ ...prev, search: value, page: 1 }));
     }, 500);
   };
- 
+
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({
       ...prev,
@@ -99,7 +101,7 @@ const AdminStudies = () => {
       page: key === "page" ? value : 1,
     }));
   };
- 
+
   const fetchUsers = useCallback(async () => {
     try {
       const response = await axios.get("/api/users?role=PATIENT");
@@ -108,16 +110,16 @@ const AdminStudies = () => {
       console.error("Error fetching users:", err);
     }
   }, []);
- 
+
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
- 
+
   const fetchOrthancStudies = async () => {
     try {
       setOrthancLoading(true);
       setOrthancError(null);
- 
+
       const response = await axios.get("/api/orthanc/studies");
       setOrthancStudies(response.data.data || []);
     } catch (err) {
@@ -141,12 +143,12 @@ const AdminStudies = () => {
       setOrthancLoading(false);
     }
   };
- 
+
   const handleOpenOrthancModal = () => {
     setShowOrthancModal(true);
     fetchOrthancStudies();
   };
- 
+
   const filteredOrthancStudies = orthancStudies.filter((study) => {
     const searchLower = orthancSearchTerm.toLowerCase();
     return (
@@ -156,7 +158,7 @@ const AdminStudies = () => {
       study.type?.toLowerCase().includes(searchLower)
     );
   });
- 
+
   const handleAssignOrthancStudy = async (orthancStudy) => {
     try {
       if (!selectedStudy?.patientId) {
@@ -176,12 +178,12 @@ const AdminStudies = () => {
         });
         return;
       }
- 
+
       await axios.post("/api/orthanc/assign", {
         patientId: selectedStudy.patientId,
         orthancId: orthancStudy.orthancId,
       });
- 
+
       toast.success("Estudio asignado correctamente", {
         autoClose: 3000,
         hideProgressBar: false,
@@ -196,7 +198,7 @@ const AdminStudies = () => {
           padding: "16px",
         },
       });
- 
+
       setShowOrthancModal(false);
       fetchUnifiedData();
     } catch (err) {
@@ -217,14 +219,14 @@ const AdminStudies = () => {
       });
     }
   };
- 
+
   const handleUploadSubmit = async (e) => {
     e.preventDefault();
     try {
       let patientId;
       let isUpdate = false;
       let studyId = null;
- 
+
       if (selectedStudy?.type === "patient") {
         patientId = selectedStudy.patientId;
       } else if (selectedStudy) {
@@ -239,19 +241,19 @@ const AdminStudies = () => {
         }
         patientId = patient.id;
       }
- 
+
       const formData = new FormData();
       formData.append("patientId", patientId);
       formData.append("type", uploadData.type);
       formData.append("date", uploadData.date);
       formData.append("notes", uploadData.notes);
- 
+
       if (uploadData.imageFiles && uploadData.imageFiles.length > 0) {
         uploadData.imageFiles.forEach((file) => {
           formData.append(`images`, file);
         });
       }
- 
+
       let response;
       if (isUpdate && studyId) {
         response = await axios.put(`/api/studies/${studyId}`, formData, {
@@ -266,9 +268,9 @@ const AdminStudies = () => {
           },
         });
       }
- 
+
       toast.success("✅ Radiografía subida correctamente");
- 
+
       setShowUploadModal(false);
       setSelectedStudy(null);
       setUploadData({
@@ -297,7 +299,7 @@ const AdminStudies = () => {
       });
     }
   };
- 
+
   const handleViewImage = (studyId) => {
     if (studyId) {
       setSelectedStudy({ studyId });
@@ -319,21 +321,51 @@ const AdminStudies = () => {
       });
     }
   };
- 
+
   const handleCloseImageViewer = () => {
     setShowImageViewer(false);
     setSelectedStudy(null);
   };
- 
+
+  const handleViewReport = async (item) => {
+    try {
+      // Obtener los datos del informe desde el backend usando reportId
+      const response = await axios.get(`/api/reports/${item.reportId}`);
+      const report = response.data;
+
+      if (report) {
+        // Combinar datos del informe con datos del estudio
+        const reportWithStudyData = {
+          ...report,
+          studyType: item.StudyDescription || item.type || "N/A",
+          studyDate: item.studyDate || "N/A",
+          doctorName: item.doctorName || "N/A",
+        };
+        setSelectedReport(reportWithStudyData);
+        setShowReportModal(true);
+      } else {
+        alert("Este estudio no tiene un informe medico disponible");
+      }
+    } catch (error) {
+      console.error("Error al obtener el informe:", error);
+      alert("Error al cargar el informe medico");
+    }
+  };
+
+  const handleCloseReportModal = () => {
+    setShowReportModal(false);
+    setSelectedReport(null);
+  };
+
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return "N/A";
- 
+
     const localDate = new Date(
       date.getTime() + date.getTimezoneOffset() * 60000,
     );
- 
+
     return localDate.toLocaleDateString("es-AR", {
       day: "2-digit",
       month: "2-digit",
@@ -341,7 +373,7 @@ const AdminStudies = () => {
       timeZone: "America/Argentina/Buenos_Aires",
     });
   };
- 
+
   if (loading) {
     return (
       <Layout>
@@ -351,7 +383,7 @@ const AdminStudies = () => {
       </Layout>
     );
   }
- 
+
   if (error) {
     return (
       <Layout>
@@ -361,7 +393,7 @@ const AdminStudies = () => {
       </Layout>
     );
   }
- 
+
   return (
     <Layout>
       <div className="w-full px-4 py-6 sm:px-6 lg:px-8">
@@ -374,11 +406,11 @@ const AdminStudies = () => {
               Administra pacientes, estudios y radiografías médicas
             </p>
           </div>
- 
+
           {/* Buscador principal responsive */}
-          <div className="p-4 mb-6 bg-white border border-gray-200 rounded-lg shadow-sm">
-            <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4">
-              <div className="flex-1">
+          <div className="p-4 mb-6 border-gray-200 rounded-lg shadow-sm bg-quinty">
+            <div className="flex flex-col space-y-4 sm:flex-row sm:space-y-0 sm:space-x-4 ">
+              <div className="flex-1 ">
                 <label className="block mb-2 text-sm font-medium text-gray-700">
                   🔍 Buscar pacientes
                 </label>
@@ -409,7 +441,7 @@ const AdminStudies = () => {
               </div>
             </div>
           </div>
- 
+
           {/* Vista de tarjetas responsive para móviles y tabla para desktop */}
           <div className="bg-white border border-gray-200 rounded-lg shadow-sm">
             {items.length === 0 ? (
@@ -458,17 +490,21 @@ const AdminStudies = () => {
                               {item.StudyDescription || item.type || "N/A"}
                             </span>
                           </div>
- 
+
                           <div className="flex flex-col space-y-2 text-sm">
                             <div className="flex justify-between">
                               <span className="text-gray-500">📅 Fecha:</span>
                               <span className="text-gray-900">
-                                {item.studyDate ? formatDate(item.studyDate) : "-"}
+                                {item.studyDate
+                                  ? formatDate(item.studyDate)
+                                  : "-"}
                               </span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-gray-500">👨‍⚕️ Doctor:</span>
-                              <span className="text-gray-900">{item.doctorName || "-"}</span>
+                              <span className="text-gray-900">
+                                {item.doctorName || "-"}
+                              </span>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-gray-500">📄 Informe:</span>
@@ -479,11 +515,13 @@ const AdminStudies = () => {
                                     : "text-red-800 bg-red-100"
                                 }`}
                               >
-                                {item.hasReport ? "✓ Con informe" : "Sin informe"}
+                                {item.hasReport
+                                  ? "✓ Con informe"
+                                  : "Sin informe"}
                               </span>
                             </div>
                           </div>
- 
+
                           <div className="pt-3 border-t border-gray-200">
                             {item.type === "patient" ? (
                               <button
@@ -496,16 +534,26 @@ const AdminStudies = () => {
                                 📋 Buscar estudios (Orthanc)
                               </button>
                             ) : (
-                              item.orthancId && (
-                                <button
-                                  onClick={() => {
-                                    handleViewImage(item.studyId);
-                                  }}
-                                  className="w-full px-4 py-2 text-blue-600 transition-colors border border-blue-600 rounded-md hover:bg-blue-50"
-                                >
-                                  👁️ Ver estudio
-                                </button>
-                              )
+                              <div className="space-y-2">
+                                {item.orthancId && (
+                                  <button
+                                    onClick={() => {
+                                      handleViewImage(item.studyId);
+                                    }}
+                                    className="w-full px-4 py-2 text-blue-600 transition-colors border border-blue-600 rounded-md hover:bg-blue-50"
+                                  >
+                                    👁️ Ver estudio
+                                  </button>
+                                )}
+                                {item.hasReport && (
+                                  <button
+                                    onClick={() => handleViewReport(item)}
+                                    className="w-full px-4 py-2 text-purple-600 transition-colors border border-purple-600 rounded-md hover:bg-purple-50"
+                                  >
+                                    📋 Ver Informe
+                                  </button>
+                                )}
+                              </div>
                             )}
                           </div>
                         </div>
@@ -513,7 +561,7 @@ const AdminStudies = () => {
                     ))}
                   </div>
                 </div>
- 
+
                 {/* Vista de tabla para desktop */}
                 <div className="hidden overflow-x-auto sm:block">
                   <table className="min-w-full divide-y divide-gray-200">
@@ -548,8 +596,12 @@ const AdminStudies = () => {
                           }`}
                         >
                           <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
-                            <div className="font-medium">{item.patientName}</div>
-                            <div className="text-gray-500">DNI: {item.patientDni}</div>
+                            <div className="font-medium">
+                              {item.patientName}
+                            </div>
+                            <div className="text-gray-500">
+                              DNI: {item.patientDni}
+                            </div>
                           </td>
                           <td className="px-6 py-4 text-sm text-gray-900 whitespace-nowrap">
                             {item.studyDate ? formatDate(item.studyDate) : "-"}
@@ -592,17 +644,27 @@ const AdminStudies = () => {
                                 📋 Buscar
                               </button>
                             ) : (
-                              item.orthancId && (
-                                <button
-                                  onClick={() => {
-                                    handleViewImage(item.studyId);
-                                  }}
-                                  className="font-medium text-blue-600 hover:text-blue-900"
-                                  title="Ver imagen existente"
-                                >
-                                  👁️ Ver
-                                </button>
-                              )
+                              <>
+                                {item.orthancId && (
+                                  <button
+                                    onClick={() => {
+                                      handleViewImage(item.studyId);
+                                    }}
+                                    className="mr-2 font-medium text-blue-600 hover:text-blue-900"
+                                    title="Ver imagen existente"
+                                  >
+                                    👁️ Ver
+                                  </button>
+                                )}
+                                {item.hasReport && (
+                                  <button
+                                    onClick={() => handleViewReport(item)}
+                                    className="px-2 py-1 text-xs text-purple-600 hover:text-purple-900"
+                                  >
+                                    📋 Ver Informe
+                                  </button>
+                                )}
+                              </>
                             )}
                           </td>
                         </tr>
@@ -613,7 +675,7 @@ const AdminStudies = () => {
               </>
             )}
           </div>
- 
+
           {/* Paginación responsive */}
           {pagination && (
             <div className="flex flex-col items-center justify-between mt-6 space-y-4 sm:flex-row sm:space-y-0">
@@ -645,7 +707,7 @@ const AdminStudies = () => {
               </div>
             </div>
           )}
- 
+
           {/* Modal de Subida */}
           {showUploadModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
@@ -676,7 +738,8 @@ const AdminStudies = () => {
                           <br />
                           <strong>DNI:</strong> {selectedStudy.patientDni}
                           <br />
-                          <strong>Estudio actual:</strong> {selectedStudy.studyType}
+                          <strong>Estudio actual:</strong>{" "}
+                          {selectedStudy.studyType}
                           <br />
                           <strong>Fecha:</strong>{" "}
                           {selectedStudy.studyDate
@@ -752,7 +815,8 @@ const AdminStudies = () => {
                         uploadData.imageFiles.length > 0 && (
                           <div className="mt-2">
                             <p className="text-sm text-gray-600">
-                              {uploadData.imageFiles.length} archivo(s) seleccionado(s):
+                              {uploadData.imageFiles.length} archivo(s)
+                              seleccionado(s):
                             </p>
                             <div className="mt-1 overflow-y-auto border border-gray-200 rounded max-h-24">
                               {uploadData.imageFiles.map((file, index) => (
@@ -775,7 +839,10 @@ const AdminStudies = () => {
                       <textarea
                         value={uploadData.notes}
                         onChange={(e) =>
-                          setUploadData({ ...uploadData, notes: e.target.value })
+                          setUploadData({
+                            ...uploadData,
+                            notes: e.target.value,
+                          })
                         }
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         rows="3"
@@ -811,7 +878,7 @@ const AdminStudies = () => {
               </div>
             </div>
           )}
- 
+
           {/* Modal de Estudios Orthanc */}
           {showOrthancModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
@@ -841,7 +908,7 @@ const AdminStudies = () => {
                         </svg>
                       </button>
                     </div>
- 
+
                     <div className="mt-4">
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
@@ -888,7 +955,7 @@ const AdminStudies = () => {
                         )}
                       </div>
                     </div>
- 
+
                     <div className="p-3 mt-4 border border-blue-200 rounded-md bg-blue-50">
                       <p className="text-sm text-blue-800">
                         Paciente seleccionado:{" "}
@@ -899,7 +966,7 @@ const AdminStudies = () => {
                       </p>
                     </div>
                   </div>
- 
+
                   <div className="flex-1 p-6 overflow-y-auto">
                     {orthancLoading ? (
                       <div className="flex items-center justify-center py-12">
@@ -924,9 +991,12 @@ const AdminStudies = () => {
                             />
                           </svg>
                         </div>
-                        <p className="font-medium text-red-600">{orthancError}</p>
+                        <p className="font-medium text-red-600">
+                          {orthancError}
+                        </p>
                         <p className="mt-2 text-sm text-gray-500">
-                          Verifique que Orthanc esté disponible en la configuración
+                          Verifique que Orthanc esté disponible en la
+                          configuración
                         </p>
                       </div>
                     ) : orthancStudies.length === 0 ? (
@@ -1018,13 +1088,14 @@ const AdminStudies = () => {
                                     study.instancesCount > 1) && (
                                     <div className="p-2 border border-gray-200 rounded bg-gray-50">
                                       <p className="text-xs text-gray-600">
-                                        Series: {study.seriesCount} | Imágenes: {study.instancesCount}
+                                        Series: {study.seriesCount} | Imágenes:{" "}
+                                        {study.instancesCount}
                                       </p>
                                     </div>
                                   )}
                                 </div>
                               </div>
- 
+
                               <button
                                 onClick={() => handleAssignOrthancStudy(study)}
                                 className="w-full px-3 py-2 mt-3 text-sm text-white transition-colors bg-blue-600 rounded-md hover:bg-blue-700"
@@ -1041,7 +1112,7 @@ const AdminStudies = () => {
               </div>
             </div>
           )}
- 
+
           {/* Visualizador de Imágenes */}
           {showImageViewer && (
             <DicomViewer
@@ -1050,10 +1121,134 @@ const AdminStudies = () => {
               onClose={handleCloseImageViewer}
             />
           )}
+
+          {/* Modal de Informe */}
+          {showReportModal && selectedReport && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+              <div className="bg-white rounded-lg w-full max-w-4xl p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold text-gray-900">
+                    Informe Medico Completo
+                  </h2>
+                  <button
+                    onClick={handleCloseReportModal}
+                    className="p-2 text-gray-400 transition-colors rounded-full hover:text-gray-600 hover:bg-gray-100"
+                  >
+                    <svg
+                      className="w-6 h-6"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M6 18L18 6M6 6l12 12"
+                      />
+                    </svg>
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Información del Estudio */}
+                  <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                    <h3 className="mb-3 text-lg font-semibold text-gray-900">
+                      Información del Estudio
+                    </h3>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">
+                          Tipo de Estudio
+                        </p>
+                        <p className="text-base text-gray-900">
+                          {selectedReport.studyType}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">
+                          Fecha del Estudio
+                        </p>
+                        <p className="text-base text-gray-900">
+                          {selectedReport.studyDate}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">
+                          Médico Informante
+                        </p>
+                        <p className="text-base text-gray-900">
+                          {selectedReport.doctorName}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">
+                          Fecha del Informe
+                        </p>
+                        <p className="text-base text-gray-900">
+                          {selectedReport.createdAt
+                            ? new Date(
+                                selectedReport.createdAt,
+                              ).toLocaleDateString("es-AR")
+                            : "N/A"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Contenido del Informe */}
+                  <div className="p-4 border border-gray-200 rounded-lg">
+                    <h3 className="mb-3 text-lg font-semibold text-gray-900">
+                      Contenido del Informe
+                    </h3>
+                    <div className="prose max-w-none">
+                      <div className="leading-relaxed text-gray-700 whitespace-pre-wrap">
+                        {selectedReport.content ||
+                          "No hay contenido disponible"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Conclusiones */}
+                  {selectedReport.conclusions && (
+                    <div className="p-4 border border-blue-200 rounded-lg bg-blue-50">
+                      <h3 className="mb-3 text-lg font-semibold text-blue-900">
+                        Conclusiones
+                      </h3>
+                      <div className="leading-relaxed text-blue-800 whitespace-pre-wrap">
+                        {selectedReport.conclusions}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Recomendaciones */}
+                  {selectedReport.recommendations && (
+                    <div className="p-4 border border-green-200 rounded-lg bg-green-50">
+                      <h3 className="mb-3 text-lg font-semibold text-green-900">
+                        Recomendaciones
+                      </h3>
+                      <div className="leading-relaxed text-green-800 whitespace-pre-wrap">
+                        {selectedReport.recommendations}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end mt-6">
+                  <button
+                    onClick={handleCloseReportModal}
+                    className="px-6 py-2 text-gray-600 transition-colors bg-gray-100 rounded-lg hover:bg-gray-200"
+                  >
+                    Cerrar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </Layout>
   );
 };
- 
+
 export default AdminStudies;
