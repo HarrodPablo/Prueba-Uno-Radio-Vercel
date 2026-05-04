@@ -44,6 +44,21 @@ export const generatePDF = (report, study) => {
     return `RX-${year}-${random}`;
   };
 
+const formatReportContent = (text) => {
+  if (!text) return "";
+
+  return (
+    text
+      // Subrayar títulos tipo "Radiografía de ..."
+      .replace(
+        /(Radiografía de [^:]+:)/g,
+        '<span class="font-semibold text-primary border-b border-primary">$1</span>',
+      )
+      // Mantener saltos de línea
+      .replace(/\n/g, "<br />")
+  );
+};
+
   const content = `
     <!DOCTYPE html>
     <html class="light" lang="es">
@@ -209,24 +224,12 @@ export const generatePDF = (report, study) => {
                 <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
                 INFORME
               </h2>
-              <div class="text-on-surface leading-relaxed text-sm space-y-4 font-normal text-justify">
-                <p>${report.content || "Sin contenido del informe"}</p>
+              <div class="text-on-surface leading-relaxed text-sm font-normal text-justify whitespace-pre-line">
+                <p>${formatReportContent(report.content)}</p>
               </div>
             </section>
             
-            <section class="pt-6 border-t border-surface-container">
-              <h2 class="text-primary font-extrabold tracking-tight text-sm uppercase mb-4 flex items-center gap-2">
-                <span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
-                Impresión (Impression)
-              </h2>
-              <div class="bg-surface-container-low/50 p-6 rounded-lg border-l-4 border-primary/20">
-                <ul class="list-disc list-inside text-on-surface leading-relaxed text-sm space-y-2 font-medium">
-                  <li>Estudio radiológico completado satisfactoriamente.</li>
-                  <li>Se recomienda correlación clínica para interpretación definitiva.</li>
-                  <li>Resultados disponibles para consulta médica.</li>
-                </ul>
-              </div>
-            </section>
+
           </article>
         </div>
         
