@@ -32,8 +32,10 @@ router.get(
         patientWhere.id = req.user.id;
       }
 
-      // Get all patients with their studies and reports
-      const patients = await prisma.user.findMany({
+      // Get all patients matching the filter with their studies and reports.
+      // Ordering/pagination happens in-memory below by most recent study date,
+      // not here, so no skip/take/orderBy on this query.
+      const allPatients = await prisma.user.findMany({
         where: {
           ...patientWhere,
           role: "PATIENT",
@@ -61,10 +63,23 @@ router.get(
             orderBy: { date: "desc" },
           },
         },
-        skip: parseInt(skip),
-        take: parseInt(limit),
-        orderBy: { createdAt: "desc" },
       });
+
+      // Sort patients by their most recent study date (studiesAsPatient[0], since
+      // that relation is already ordered desc), falling back to the patient's own
+      // createdAt for patients without any studies yet. This makes a patient with
+      // a brand-new study surface at the top, regardless of when their account
+      // was created.
+      const sortedPatients = allPatients.sort((a, b) => {
+        const aDate = a.studiesAsPatient[0]?.date ?? a.createdAt;
+        const bDate = b.studiesAsPatient[0]?.date ?? b.createdAt;
+        return new Date(bDate) - new Date(aDate);
+      });
+
+      const patients = sortedPatients.slice(
+        parseInt(skip),
+        parseInt(skip) + parseInt(limit),
+      );
 
       // Transform data to create unified list
       const unifiedList = [];
@@ -150,13 +165,8 @@ router.get(
         }
       }
 
-      // Get total count for pagination
-      const totalPatients = await prisma.user.count({
-        where: {
-          ...patientWhere,
-          role: "PATIENT",
-        },
-      });
+      // Total count for pagination — already have the full matching list in memory.
+      const totalPatients = allPatients.length;
 
       const pagination = {
         page: parseInt(page),
