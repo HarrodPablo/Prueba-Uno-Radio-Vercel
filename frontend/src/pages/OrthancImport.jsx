@@ -7,7 +7,7 @@ import { useAuth } from "../context/AuthContext";
 import { backendOrigin, withOrthancProxyAuth } from "../utils/orthancUrl";
 
 const OrthancImport = () => {
-  const { token } = useAuth();
+  const { user, token } = useAuth();
   const [orthancStudies, setOrthancStudies] = useState([]);
   const [orthancLoading, setOrthancLoading] = useState(false);
   const [orthancError, setOrthancError] = useState(null);
@@ -15,8 +15,9 @@ const OrthancImport = () => {
   const [viewMode, setViewMode] = useState("pending"); // "pending" o "completed"
   const [completedStudies, setCompletedStudies] = useState([]);
   const [completedLoading, setCompletedLoading] = useState(false);
-  const [existingPatients, setExistingPatients] = useState(new Set()); // Track existing patients by DNI:orthancId
-  const checkingPatientsRef = useRef(false);
+
+  const [doctors, setDoctors] = useState([]);
+  const [selectedDoctorId, setSelectedDoctorId] = useState("");
 
   // Función para formatear fecha DICOM (YYYYMMDD)
   const formatDicomDate = (dateString) => {
@@ -133,47 +134,32 @@ const OrthancImport = () => {
     fetchCompletedStudies();
   }, [fetchOrthancStudies, fetchCompletedStudies]);
 
-  // Verificar pacientes existentes solo al cargar los estudios por primera vez
+  // Cargar lista de doctores si es ADMIN
   useEffect(() => {
-    if (
-      orthancStudies.length > 0 &&
-      existingPatients.size === 0 &&
-      !checkingPatientsRef.current
-    ) {
-      checkingPatientsRef.current = true;
-      checkExistingPatients(orthancStudies).finally(() => {
-        checkingPatientsRef.current = false;
-      });
+    if (user?.role === "ADMIN") {
+      axios
+        .get("/api/users?role=DOCTOR&limit=100")
+        .then((res) => {
+          setDoctors(res.data.users || []);
+        })
+        .catch((err) => console.error("Error fetching doctors", err));
     }
-  }, [orthancStudies]);
+  }, [user]);
 
   // Función para filtrar y ordenar estudios
   const filteredStudies = orthancStudies
     .filter((study) => {
-      const patientDni = study.PatientID || study.patientDni;
-      const uniqueKey = `${patientDni}:${study.orthancId}`;
-      const hasExistingPatient = existingPatients.has(uniqueKey);
       const searchLower = searchTerm.toLowerCase();
 
-      // Primero filtrar por búsqueda
+      // Filtrar por búsqueda
       const matchesSearch =
-        (study.PatientName || study.patientName)
-          ?.toLowerCase()
-          .includes(searchLower) ||
+        (study.PatientName || study.patientName)?.toLowerCase().includes(searchLower) ||
         study.orthancId?.toLowerCase().includes(searchLower) ||
-        (study.StudyDate || study.studyDate)
-          ?.toLowerCase()
-          .includes(searchLower) ||
-        (study.StudyDescription || study.type)
-          ?.toLowerCase()
-          .includes(searchLower);
+        (study.StudyDate || study.studyDate)?.toLowerCase().includes(searchLower) ||
+        (study.StudyDescription || study.type)?.toLowerCase().includes(searchLower);
 
-      // Luego filtrar para no mostrar estudios ya completados
-      const isAlreadyCompleted = completedStudies.some(
-        (completedStudy) => completedStudy.orthancId === study.orthancId,
-      );
-
-      return matchesSearch && !isAlreadyCompleted;
+      // El backend ya filtra los que existen en la BD, así que solo aplicamos búsqueda
+      return matchesSearch;
     })
     .sort((a, b) => {
       // Ordenar por fecha de estudio (más reciente primero)
@@ -196,111 +182,6 @@ const OrthancImport = () => {
       return dateBObj - dateAObj;
     });
 
-  // Función para verificar todos los pacientes existentes
-  const checkExistingPatients = async (studies) => {
-    // Deduplicar DNIs para no hacer requests repetidos
-    const uniqueDnis = [
-      ...new Set(
-        studies
-          .map((s) => s.PatientID || s.patientDni)
-          .filter((dni) => dni && dni !== "Sin ID" && !dni.startsWith("Sin")),
-      ),
-    ];
-
-    if (uniqueDnis.length === 0) return;
-
-    // Todos los requests en paralelo
-    const results = await Promise.allSettled(
-      uniqueDnis.map((dni) =>
-        axios
-          .get(`/api/users?search=${encodeURIComponent(dni)}&limit=1&page=1`)
-          .then((res) => ({
-            dni,
-            found: !!res.data?.users?.find((u) => u.dni === dni),
-          }))
-          .catch(() => ({ dni, found: false })),
-      ),
-    );
-
-    const existing = new Set(existingPatients);
-    results.forEach((result) => {
-      if (result.status === "fulfilled" && result.value.found) {
-        const { dni } = result.value;
-        // Marcar todos los estudios que tienen este DNI
-        studies.forEach((study) => {
-          const studyDni = study.PatientID || study.patientDni;
-          if (studyDni === dni) {
-            existing.add(`${dni}:${study.orthancId}`);
-          }
-        });
-      }
-    });
-
-    setExistingPatients(existing);
-  };
-
-  // Función para verificar si paciente ya existe
-  const checkPatientExists = async (orthancStudy) => {
-    const patientDni = orthancStudy.PatientID || orthancStudy.patientDni;
-    if (!patientDni) return false;
-
-    try {
-      const response = await axios.get(
-        `/api/users?search=${encodeURIComponent(patientDni)}&limit=10&page=1`,
-      );
-
-      const found = response.data?.users?.find((u) => u.dni === patientDni);
-      return !!found;
-    } catch (error) {
-      console.error("Error verificando si paciente existe:", error);
-      return false;
-    }
-  };
-
-  // Función para marcar estudio como completado
-  const handleMarkAsCompleted = async (study) => {
-    try {
-      // Solo marcar el estudio como completado (no crear usuario)
-      const response = await axios.patch(
-        `/api/studies/${study.orthancId}/status`,
-        {
-          status: "COMPLETED",
-        },
-      );
-
-      toast.success("Estudio marcado como LISTO/CREADO", {
-        autoClose: 3000,
-        position: "top-right",
-      });
-
-      // Refrescar solo completedStudies (sin volver a verificar pacientes existentes)
-
-      // Pequeño delay para asegurar que el backend actualizó los datos
-      setTimeout(() => {
-        fetchCompletedStudies();
-
-        // También refrescar orthancStudies para que el estudio marcado desaparezca de pendientes
-        // pero SIN volver a verificar pacientes existentes
-        setOrthancStudies((prev) =>
-          prev.filter((s) => s.orthancId !== study.orthancId),
-        );
-
-        // Actualizar el estado de pacientes existentes para mantener consistencia
-        const patientDni = study.PatientID || study.patientDni;
-        if (patientDni) {
-          const uniqueKey = `${patientDni}:${study.orthancId}`;
-          setExistingPatients((prev) => new Set([...prev, uniqueKey]));
-        }
-      }, 500);
-    } catch (error) {
-      console.error("Error marking study as completed:", error);
-      toast.error("Error al marcar estudio como completado", {
-        autoClose: 5000,
-        position: "top-right",
-      });
-    }
-  };
-
   // Función para importar desde Orthanc
   const handleImportFromOrthanc = async (orthancStudy) => {
     // Prevenir múltiples ejecuciones simultáneas
@@ -311,91 +192,67 @@ const OrthancImport = () => {
     // Marcar como importando
     orthancStudy.importing = true;
     try {
-      // Crear usuario con datos formateados del DICOM
+      // 1. Datos básicos del DICOM
       const patientDni =
         orthancStudy.PatientID ||
         orthancStudy.patientDni ||
         "AUTO-" + Date.now();
-
-      const payload = {
-        name: formatDicomName(
-          orthancStudy.PatientName || orthancStudy.patientName,
-        ),
-        dni: patientDni,
-        phone: "0000000000",
-        email: "",
-        role: "PATIENT",
-        password: patientDni,
-      };
-
+        
       let userId;
       let createdUser;
+
+      // 2. Buscar si el paciente ya existe en el sistema
       try {
+        const searchRes = await axios.get(
+          `/api/users?search=${encodeURIComponent(patientDni)}&limit=1&page=1`
+        );
+        const found = searchRes.data?.users?.find((u) => u.dni === patientDni);
+        
+        if (found) {
+          userId = found.id;
+          createdUser = found;
+        }
+      } catch (err) {
+        console.error("Error buscando paciente:", err);
+      }
+
+      // 3. Si no existe, lo creamos
+      if (!userId) {
+        const payload = {
+          name: formatDicomName(
+            orthancStudy.PatientName || orthancStudy.patientName,
+          ),
+          dni: patientDni,
+          phone: "0000000000",
+          email: "",
+          role: "PATIENT",
+          password: patientDni,
+        };
         const response = await axios.post("/api/users", payload);
         createdUser = response.data;
         userId = createdUser.id;
-      } catch (err) {
-        const msg = err?.response?.data?.error || err?.message || "";
-        // Si ya existe, lo buscamos y lo reutilizamos
-        if (
-          err?.response?.status === 400 &&
-          (String(msg).toLowerCase().includes("usuario ya existe") ||
-            String(msg).toLowerCase().includes("already exists") ||
-            String(msg).toLowerCase().includes("dni"))
-        ) {
-          const existing = await axios.get(
-            `/api/users?search=${encodeURIComponent(patientDni)}&limit=1&page=1`,
-          );
-          const found = existing.data?.users?.find((u) => u.dni === patientDni);
-          if (!found) {
-            // Si no encontramos por búsqueda, intentamos buscar directamente por DNI
-            try {
-              const directSearch = await axios.get(
-                `/api/users?search=${patientDni}&limit=10&page=1`,
-              );
-              const directFound = directSearch.data?.users?.find(
-                (u) => u.dni === patientDni,
-              );
-              if (directFound) {
-                userId = directFound.id;
-                createdUser = directFound;
-              } else {
-                throw err;
-              }
-            } catch (searchErr) {
-              throw err;
-            }
-          } else {
-            userId = found.id;
-            createdUser = found;
-          }
-        } else {
-          throw err;
-        }
       }
 
-      // Asignar estudio Orthanc al usuario creado
+      // 4. Asignar el estudio al usuario (ya sea nuevo o existente)
       await axios.post("/api/orthanc/assign", {
         patientId: userId,
         orthancId: orthancStudy.orthancId,
+        doctorId: selectedDoctorId || undefined,
       });
 
-      // Mostrar mensaje de éxito con credenciales de login
+      // Mostrar mensaje de éxito
       toast.success(
-        `Usuario "${createdUser?.name || payload.name}" listo!\n\nCredenciales de acceso:\nUsuario: ${patientDni}\nContraseña: ${patientDni}`,
+        `Estudio asignado a "${createdUser?.name}" correctamente.\n(DNI: ${patientDni})`,
       );
 
-      // Actualizar el estado de pacientes existentes para habilitar el botón LISTO
-      if (patientDni) {
-        const uniqueKey = `${patientDni}:${orthancStudy.orthancId}`;
-        setExistingPatients((prev) => new Set([...prev, uniqueKey]));
-      }
+      // Quitar el estudio de la lista visible de pendientes
+      setOrthancStudies((prev) =>
+        prev.filter((s) => s.orthancId !== orthancStudy.orthancId)
+      );
     } catch (error) {
-      console.error("Error creando usuario desde Orthanc:", error);
-      toast.error("Error al crear usuario desde Orthanc", {
+      console.error("Error importando estudio desde Orthanc:", error);
+      toast.error(error?.response?.data?.error || "Error al importar el estudio", {
         autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: true,
         position: "top-right",
       });
     } finally {
@@ -477,6 +334,27 @@ const OrthancImport = () => {
                 </button>
               </div>
             </div>
+
+            {/* Asignar a Doctor (Solo Admin) */}
+            {user?.role === "ADMIN" && viewMode === "pending" && (
+              <div className="flex items-center gap-2 mb-4 p-3 bg-gray-50 border border-gray-200 rounded-md shadow-sm">
+                <label className="text-sm font-medium text-gray-700">
+                  👨‍⚕️ Asignar estudio importado a:
+                </label>
+                <select
+                  value={selectedDoctorId}
+                  onChange={(e) => setSelectedDoctorId(e.target.value)}
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">(Asignar a mí mismo / Por defecto)</option>
+                  {doctors.map((doc) => (
+                    <option key={doc.id} value={doc.id}>
+                      Dr. {doc.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* Buscador */}
             <div className="relative max-w-md">
@@ -644,28 +522,9 @@ const OrthancImport = () => {
                                 <button
                                   onClick={() => handleImportFromOrthanc(study)}
                                   className="px-3 py-1 text-sm text-white transition-colors rounded-md bg-quinty hover:bg-cuarty"
-                                  disabled={existingPatients.has(
-                                    `${study.PatientID || study.patientDni}:${study.orthancId}`,
-                                  )}
+                                  disabled={study.importing}
                                 >
-                                  Crear
-                                </button>
-                                <button
-                                  onClick={() => handleMarkAsCompleted(study)}
-                                  className={`px-3 py-1 text-sm text-white transition-colors rounded-md ${
-                                    existingPatients.has(
-                                      `${study.PatientID || study.patientDni}:${study.orthancId}`,
-                                    )
-                                      ? "bg-green-600 hover:bg-green-700"
-                                      : "bg-gray-400 cursor-not-allowed"
-                                  }`}
-                                  disabled={
-                                    !existingPatients.has(
-                                      `${study.PatientID || study.patientDni}:${study.orthancId}`,
-                                    )
-                                  }
-                                >
-                                  ✅ LISTO
+                                  {study.importing ? "Importando..." : "Importar y Asignar"}
                                 </button>
                               </div>
                             ) : (
@@ -796,35 +655,10 @@ const OrthancImport = () => {
                         <div className="flex pt-3 space-x-3 border-t border-gray-100">
                           <button
                             onClick={() => handleImportFromOrthanc(study)}
-                            className={`flex-1 px-3 py-2 text-white transition-colors rounded-md ${
-                              existingPatients.has(
-                                `${study.PatientID || study.patientDni}:${study.orthancId}`,
-                              )
-                                ? "bg-gray-400 cursor-not-allowed"
-                                : "bg-quinty hover:bg-cuarty"
-                            }`}
-                            disabled={existingPatients.has(
-                              `${study.PatientID || study.patientDni}:${study.orthancId}`,
-                            )}
+                            className="flex-1 px-3 py-2 text-white transition-colors rounded-md bg-quinty hover:bg-cuarty"
+                            disabled={study.importing}
                           >
-                            Crear
-                          </button>
-                          <button
-                            onClick={() => handleMarkAsCompleted(study)}
-                            className={`flex-1 px-3 py-2 text-white transition-colors rounded-md ${
-                              existingPatients.has(
-                                `${study.PatientID || study.patientDni}:${study.orthancId}`,
-                              )
-                                ? "bg-green-600 hover:bg-green-700"
-                                : "bg-gray-400 cursor-not-allowed"
-                            }`}
-                            disabled={
-                              !existingPatients.has(
-                                `${study.PatientID || study.patientDni}:${study.orthancId}`,
-                              )
-                            }
-                          >
-                            LISTO
+                            {study.importing ? "Importando..." : "Importar y Asignar"}
                           </button>
                         </div>
                       ) : (

@@ -61,54 +61,18 @@ export const getStudies = async () => {
   }
 
   try {
-    const response = await orthancApi.get("/studies");
-    const studyIds = response.data;
+    // Obtenemos todos los estudios detallados en una sola petición
+    const response = await orthancApi.get("/studies?expand=true");
+    const expandedStudies = response.data || [];
 
-    if (studyIds.length === 0) {
-      const empty = [];
-      setCache(cacheKey, empty);
-      return empty;
+    if (expandedStudies.length === 0) {
+      setCache(cacheKey, []);
+      return [];
     }
 
-    // Batch all requests to eliminate N+1 problem
-    const studyPromises = studyIds.map((id) =>
-      orthancApi.get(`/studies/${id}`),
-    );
-    const seriesPromises = studyIds.map((id) =>
-      orthancApi.get(`/studies/${id}/series`),
-    );
-
-    const [studyResponses, seriesResponses] = await Promise.all([
-      Promise.all(studyPromises),
-      Promise.all(seriesPromises),
-    ]);
-
-    // Get instance counts for series that have them
-    const instancePromises = [];
-    const instanceMap = new Map();
-
-    seriesResponses.forEach((seriesRes, studyIndex) => {
-      const series = seriesRes.data;
-      if (series.length > 0) {
-        const firstSeries = series[0];
-        const promise = orthancApi
-          .get(`/series/${firstSeries.ID}/instances`)
-          .then((res) => {
-            instanceMap.set(studyIds[studyIndex], res.data.length);
-          });
-        instancePromises.push(promise);
-      } else {
-        instanceMap.set(studyIds[studyIndex], 0);
-      }
-    });
-
-    await Promise.all(instancePromises);
-
-    const studies = studyIds.map((id, index) => {
-      const study = studyResponses[index].data;
-      const series = seriesResponses[index].data;
-      const instancesCount = instanceMap.get(id) || 0;
-
+    const studies = expandedStudies.map((study) => {
+      const seriesCount = Array.isArray(study.Series) ? study.Series.length : 0;
+      
       return {
         orthancId: study.ID,
         PatientName: study.PatientMainDicomTags?.PatientName || "Sin nombre",
@@ -125,9 +89,9 @@ export const getStudies = async () => {
         patientDni: study.PatientMainDicomTags?.PatientID || "Sin ID",
         studyDate: study.MainDicomTags?.StudyDate || "Sin fecha",
         studyTime: study.MainDicomTags?.StudyTime || "Sin hora",
-        Series: series.length,
-        seriesCount: series.length,
-        instancesCount,
+        Series: seriesCount,
+        seriesCount: seriesCount,
+        instancesCount: 0, // No lo necesitamos y ahorramos cientos de peticiones
       };
     });
 

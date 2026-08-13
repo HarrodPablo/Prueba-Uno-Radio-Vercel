@@ -289,7 +289,7 @@ router.get(
   roleMiddleware(["ADMIN", "DOCTOR"]),
   async (req, res) => {
     try {
-      res.set("Cache-Control", "public, max-age=300");
+      res.set("Cache-Control", "no-store");
 
       const isOrthancConnected = await checkOrthancConnection();
       if (!isOrthancConnected) {
@@ -299,7 +299,18 @@ router.get(
         });
       }
 
-      const studies = await getStudies();
+      const { prisma } = await import("../lib/prisma.js");
+
+      // Obtener IDs de estudios ya importados en nuestra base de datos
+      const existingStudies = await prisma.study.findMany({
+        select: { orthancId: true }
+      });
+      const importedOrthancIds = new Set(existingStudies.map((s) => s.orthancId));
+
+      let studies = await getStudies();
+      
+      // Filtrar estudios para devolver SOLO los que no se han importado aún
+      studies = studies.filter((study) => !importedOrthancIds.has(study.orthancId));
 
       res.json({
         success: true,
@@ -365,7 +376,7 @@ router.post(
   roleMiddleware(["ADMIN", "DOCTOR"]),
   async (req, res) => {
     try {
-      const { patientId, orthancId, patientDni, patientName } = req.body;
+      const { patientId, orthancId, patientDni, patientName, doctorId } = req.body;
 
       if (!orthancId) {
         return res.status(400).json({ error: "orthancId es requerido" });
@@ -424,17 +435,31 @@ router.post(
           const year = dicomDate.substring(0, 4);
           const month = dicomDate.substring(4, 6);
           const day = dicomDate.substring(6, 8);
-          const parsedDate = new Date(`${year}-${month}-${day}`);
+          // Usamos mediodía UTC para evitar desplazamientos por zona horaria
+          const parsedDate = new Date(`${year}-${month}-${day}T12:00:00Z`);
           if (!isNaN(parsedDate.getTime())) {
             studyDate = parsedDate;
           }
         }
       }
 
+      // Verificación de idempotencia: si ya existe, lo devolvemos sin crearlo de nuevo
+      const existingStudy = await prisma.study.findFirst({
+        where: { orthancId: orthancId }
+      });
+
+      if (existingStudy) {
+        return res.json({
+          message: "Estudio ya estaba importado",
+          study: existingStudy,
+          patient,
+        });
+      }
+
       const study = await prisma.study.create({
         data: {
           patientId,
-          doctorId: req.user.id,
+          doctorId: doctorId || req.user.id,
           orthancId,
           type: studyDetails.type || "Sin tipo",
           StudyDescription:

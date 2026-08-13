@@ -388,14 +388,14 @@ const Unified = () => {
                     👨‍⚕️ Mis estudios
                   </label>
                   <select
-                    checked={filters.onlyMyStudies}
+                    value={filters.onlyMyStudies ? "true" : "false"}
                     onChange={(e) =>
-                      handleFilterChange("onlyMyStudies", e.target.checked)
+                      handleFilterChange("onlyMyStudies", e.target.value === "true")
                     }
                     className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   >
-                    <option value={false}>Todos los estudios</option>
-                    <option value={true}>Solo mis estudios</option>
+                    <option value="false">Todos los estudios</option>
+                    <option value="true">Solo mis estudios</option>
                   </select>
                 </div>
               )}

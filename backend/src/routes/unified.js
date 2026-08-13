@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import express from "express";
 import { prisma } from "../lib/prisma.js";
 import { authMiddleware, roleMiddleware } from "../middleware/auth.js";
@@ -20,66 +21,86 @@ router.get(
       } = req.query;
       const skip = (page - 1) * limit;
 
-      // Build where clause for patients
-      const patientWhere = search
-        ? {
-            OR: [{ name: { contains: search } }, { dni: { contains: search } }],
+      const searchParam = search ? `%${search}%` : null;
+      
+      // Construir filtro de rol si es paciente
+      const isPatient = req.user.role === "PATIENT";
+      const patientId = req.user.id;
+
+      // 1. Obtener el total de pacientes (para la paginación)
+      const totalResult = await prisma.$queryRaw`
+        SELECT COUNT(u.id)::int as count
+        FROM users u
+        WHERE u.role = 'PATIENT'
+          ${
+            searchParam
+              ? Prisma.sql`AND (u.name ILIKE ${searchParam} OR u.dni ILIKE ${searchParam})`
+              : Prisma.empty
           }
-        : {};
+          ${isPatient ? Prisma.sql`AND u.id = ${patientId}` : Prisma.empty}
+      `;
+      const totalPatients = totalResult[0]?.count || 0;
 
-      // For PATIENTS, only show their own data
-      if (req.user.role === "PATIENT") {
-        patientWhere.id = req.user.id;
-      }
+      // 2. Obtener los IDs de los pacientes de esta página, ordenados por el último estudio
+      const paginatedIdsResult = await prisma.$queryRaw`
+        SELECT u.id
+        FROM users u
+        LEFT JOIN (
+          SELECT "patientId", MAX("date") as latest_study_date
+          FROM studies
+          GROUP BY "patientId"
+        ) s ON u.id = s."patientId"
+        WHERE u.role = 'PATIENT'
+          ${
+            searchParam
+              ? Prisma.sql`AND (u.name ILIKE ${searchParam} OR u.dni ILIKE ${searchParam})`
+              : Prisma.empty
+          }
+          ${isPatient ? Prisma.sql`AND u.id = ${patientId}` : Prisma.empty}
+        ORDER BY COALESCE(s.latest_study_date, u."createdAt") DESC
+        LIMIT ${parseInt(limit)} OFFSET ${parseInt(skip)}
+      `;
 
-      // Get all patients matching the filter with their studies and reports.
-      // Ordering/pagination happens in-memory below by most recent study date,
-      // not here, so no skip/take/orderBy on this query.
-      const allPatients = await prisma.user.findMany({
-        where: {
-          ...patientWhere,
-          role: "PATIENT",
-        },
-        include: {
-          studiesAsPatient: {
-            select: {
-              id: true,
-              patientId: true,
-              doctorId: true,
-              orthancId: true,
-              type: true,
-              StudyDescription: true,
-              notes: true,
-              date: true,
-              imageUrl: true,
-              studyInstanceUid: true,
-              doctor: {
-                select: { id: true, name: true, dni: true },
-              },
-              reports: {
-                select: { id: true, content: true, createdAt: true },
-              },
-            },
-            orderBy: { date: "desc" },
+      const patientIds = paginatedIdsResult.map((r) => r.id);
+
+      let patients = [];
+      if (patientIds.length > 0) {
+        // 3. Obtener los datos completos solo para los pacientes de esta página
+        const fetchedPatients = await prisma.user.findMany({
+          where: {
+            id: { in: patientIds },
           },
-        },
-      });
+          include: {
+            studiesAsPatient: {
+              select: {
+                id: true,
+                patientId: true,
+                doctorId: true,
+                orthancId: true,
+                type: true,
+                StudyDescription: true,
+                notes: true,
+                date: true,
+                imageUrl: true,
+                studyInstanceUid: true,
+                doctor: {
+                  select: { id: true, name: true, dni: true },
+                },
+                reports: {
+                  select: { id: true, content: true, createdAt: true },
+                },
+              },
+              orderBy: { date: "desc" },
+            },
+          },
+        });
 
-      // Sort patients by their most recent study date (studiesAsPatient[0], since
-      // that relation is already ordered desc), falling back to the patient's own
-      // createdAt for patients without any studies yet. This makes a patient with
-      // a brand-new study surface at the top, regardless of when their account
-      // was created.
-      const sortedPatients = allPatients.sort((a, b) => {
-        const aDate = a.studiesAsPatient[0]?.date ?? a.createdAt;
-        const bDate = b.studiesAsPatient[0]?.date ?? b.createdAt;
-        return new Date(bDate) - new Date(aDate);
-      });
-
-      const patients = sortedPatients.slice(
-        parseInt(skip),
-        parseInt(skip) + parseInt(limit),
-      );
+        // 4. Prisma no garantiza el orden al usar 'in', así que reordenamos
+        // según el arreglo 'patientIds' devuelto por la consulta SQL
+        patients = patientIds.map((id) =>
+          fetchedPatients.find((p) => p.id === id),
+        ).filter(Boolean);
+      }
 
       // Transform data to create unified list
       const unifiedList = [];
@@ -165,8 +186,6 @@ router.get(
         }
       }
 
-      // Total count for pagination — already have the full matching list in memory.
-      const totalPatients = allPatients.length;
 
       const pagination = {
         page: parseInt(page),
