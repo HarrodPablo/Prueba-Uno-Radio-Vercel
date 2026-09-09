@@ -9,6 +9,7 @@ import { backendOrigin, withOrthancProxyAuth } from "../utils/orthancUrl";
 const DicomViewer = ({
   studyId,
   studyInstanceUid: studyInstanceUidProp = null,
+  orthancId: orthancIdProp = null,
   notes: studyNotes = "",
   userRole = "PATIENT",
   onClose,
@@ -17,7 +18,7 @@ const DicomViewer = ({
   const [studyData, setStudyData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [orthancId, setOrthancId] = useState(null);
+  const [orthancId, setOrthancId] = useState(orthancIdProp);
   const [viewerUrl, setViewerUrl] = useState(null);
 
   const buildStoneUrl = (uid) => {
@@ -33,8 +34,10 @@ const DicomViewer = ({
         setLoading(true);
         setError(null);
 
-        if (studyInstanceUidProp) {
-          const finalUrl = buildStoneUrl(studyInstanceUidProp);
+        const identifier = studyInstanceUidProp || orthancIdProp;
+
+        if (identifier) {
+          const finalUrl = buildStoneUrl(identifier);
           if (!finalUrl) {
             setError("Sesión no válida para cargar el visor.");
             return;
@@ -51,12 +54,12 @@ const DicomViewer = ({
           setError("No se encontró el estudio.");
           return;
         }
-        const identifier = study.studyInstanceUid || study.orthancId;
-        if (!identifier) {
+        const fallbackIdentifier = study.studyInstanceUid || study.orthancId;
+        if (!fallbackIdentifier) {
           setError("Este estudio no tiene identificadores DICOM válidos.");
           return;
         }
-        const finalUrl = buildStoneUrl(identifier);
+        const finalUrl = buildStoneUrl(fallbackIdentifier);
         if (!finalUrl) {
           setError("Sesión no válida para cargar el visor.");
           return;
@@ -73,7 +76,7 @@ const DicomViewer = ({
     };
 
     loadStudyForViewer();
-  }, [studyId, token]);
+  }, [studyId, token, studyInstanceUidProp, orthancIdProp]);
 
   const refreshViewer = () => {
     const id = studyInstanceUidProp || studyData?.studyInstanceUid || orthancId;

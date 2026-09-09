@@ -948,6 +948,7 @@ const Unified = () => {
           <DicomViewer
             studyId={selectedStudy.studyId}
             studyInstanceUid={selectedStudy.studyInstanceUid}
+            orthancId={selectedStudy.orthancId}
             studyType={selectedStudy.studyType}
             notes={selectedStudy.notes}
             userRole={user?.role}
