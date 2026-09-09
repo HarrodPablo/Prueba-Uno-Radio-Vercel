@@ -507,6 +507,7 @@ const PatientDashboard = () => {
         <DicomViewer
           studyId={selectedImage.studyId || selectedImage.study?.id}
           studyInstanceUid={selectedImage.studyInstanceUid}
+          orthancId={selectedImage.orthancId || selectedImage.study?.orthancId}
           studyType={selectedImage.studyType || selectedImage.study?.type}
           notes={selectedImage.notes || selectedImage.study?.notes}
           userRole={user?.role}

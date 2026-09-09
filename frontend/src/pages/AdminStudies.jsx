@@ -1118,6 +1118,7 @@ const AdminStudies = () => {
             <DicomViewer
               studyId={selectedStudy?.studyId}
               studyInstanceUid={selectedStudy?.studyInstanceUid}
+              orthancId={selectedStudy?.orthancId}
               onClose={handleCloseImageViewer}
             />
           )}
