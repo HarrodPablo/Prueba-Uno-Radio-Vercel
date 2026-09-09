@@ -300,9 +300,9 @@ const AdminStudies = () => {
     }
   };
 
-  const handleViewImage = (studyId) => {
-    if (studyId) {
-      setSelectedStudy({ studyId });
+  const handleViewImage = (item) => {
+    if (item && item.studyId) {
+      setSelectedStudy(item);
       setShowImageViewer(true);
     } else {
       toast.error("Este estudio no tiene imagen disponible", {
@@ -538,7 +538,7 @@ const AdminStudies = () => {
                                 {item.orthancId && (
                                   <button
                                     onClick={() => {
-                                      handleViewImage(item.studyId);
+                                      handleViewImage(item);
                                     }}
                                     className="w-full px-4 py-2 text-blue-600 transition-colors border border-blue-600 rounded-md hover:bg-blue-50"
                                   >
@@ -648,7 +648,7 @@ const AdminStudies = () => {
                                 {item.orthancId && (
                                   <button
                                     onClick={() => {
-                                      handleViewImage(item.studyId);
+                                      handleViewImage(item);
                                     }}
                                     className="mr-2 font-medium text-blue-600 hover:text-blue-900"
                                     title="Ver imagen existente"
